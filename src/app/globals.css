@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f8fa;
+  --foreground: #1a2b33;
+  --card: #ffffff;
+  --primary: #007398;
+  --primary-dark: #005f7a;
+  --accent: #e8f4f8;
+  --border: #d0e3ea;
+  --muted: #5a727c;
+  --good: #1b7a4e;
+  --attention: #b7791f;
+  --fix: #b83232;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-good: var(--good);
+  --color-attention: var(--attention);
+  --color-fix: var(--fix);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), "Segoe UI", Tahoma, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button:not(:disabled),
+[type="button"]:not(:disabled),
+[type="submit"]:not(:disabled),
+[type="reset"]:not(:disabled),
+a[href],
+label,
+select:not(:disabled),
+summary,
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+input[type="file"]:not(:disabled)::file-selector-button {
+  cursor: pointer;
+}
+

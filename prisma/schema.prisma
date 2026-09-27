@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  
+}
+
+enum Role {
+  INTERVIEWER
+  HEAD_NURSE
+  QUALITY_MANAGER
+  MEDICAL_DIRECTOR
+  GENERAL_DIRECTOR
+  ADMIN
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  RATING
+  SHORT_TEXT
+  LONG_TEXT
+}
+
+enum AssessmentLevel {
+  GOOD
+  ATTENTION
+  FIX_NEEDED
+  ABSTAINED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(INTERVIEWER)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  surveys      Survey[] @relation("SurveyAuthor")
+  surveyEdits  Survey[] @relation("SurveyEditor")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users     User[]
+  patients  Patient[]
+}
+
+model Patient {
+  id             String    @id @default(cuid())
+  personalId     String?
+  fullName       String
+  birthDate      DateTime?
+  age            Int?
+  mobile         String?
+  historyNumber  String?
+  careType       String?
+  openedAt       DateTime?
+  closedAt       DateTime?
+  dischargedAt   DateTime?
+  doctorName     String?
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  departmentName String?
+  source         String    @default("manual")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  rosterEntries  DailyRoster[]
+  surveys        Survey[]
+
+  @@index([personalId])
+  @@index([historyNumber])
+  @@index([fullName])
+}
+
+model DailyRoster {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@unique([patientId, date])
+  @@index([date])
+}
+
+model Questionnaire {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  active      Boolean  @default(false)
+  version     Int      @default(1)
+  parentId    String?
+  parent      Questionnaire?  @relation("QuestionnaireVersions", fields: [parentId], references: [id], onDelete: SetNull)
+  versions    Questionnaire[] @relation("QuestionnaireVersions")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions Question[]
+  surveys   Survey[]
+
+  @@index([parentId])
+  @@index([version])
+}
+
+model Question {
+  id              String       @id @default(cuid())
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  text            String
+  type            QuestionType
+  required        Boolean      @default(true)
+  order           Int          @default(0)
+  ratingMin       Int?         @default(1)
+  ratingMax       Int?         @default(5)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  options QuestionOption[]
+  answers Answer[]
+}
+
+model QuestionOption {
+  id                String  @id @default(cuid())
+  questionId        String
+  question          Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label             String
+  value             String
+  order             Int     @default(0)
+  isNegative        Boolean @default(false)
+  requireReason     Boolean @default(false)
+}
+
+model Survey {
+  id              String          @id @default(cuid())
+  patientId       String
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  questionnaireId String
+  questionnaire   Questionnaire   @relation(fields: [questionnaireId], references: [id])
+  surveyDate      DateTime        @db.Date
+  comment         String?
+  assessment      AssessmentLevel
+  authorId        String
+  author          User            @relation("SurveyAuthor", fields: [authorId], references: [id])
+  lastEditedById  String?
+  lastEditedBy    User?           @relation("SurveyEditor", fields: [lastEditedById], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  answers Answer[]
+
+  @@unique([patientId, surveyDate, questionnaireId])
+  @@index([surveyDate])
+  @@index([assessment])
+}
+
+model Answer {
+  id             String   @id @default(cuid())
+  surveyId       String
+  survey         Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question @relation(fields: [questionId], references: [id])
+  selectedValues String[]
+  textValue      String?
+  ratingValue    Int?
+  reason         String?
+  isNegative     Boolean  @default(false)
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  surveyDate DateTime @db.Date
+  recipients String[]
+  subject    String
+  body       String
+  sentAt     DateTime @default(now())
+  success    Boolean  @default(true)
+  error      String?
+}
+
+model SyncLog {
+  id        String   @id @default(cuid())
+  source    String
+  message   String
+  count     Int      @default(0)
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
