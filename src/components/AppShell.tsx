@@ -8,7 +8,18 @@ const CLINIC_NAME =
   "თანამედროვე სამედიცინო ტექნოლოგიების დასავლეთის რეგიონალური ცენტრი";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { data } = useSession();
+  const { data, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-muted">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm">იტვირთება...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
