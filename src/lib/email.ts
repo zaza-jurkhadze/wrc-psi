@@ -30,7 +30,6 @@ function recipients(): string[] {
 }
 
 export function buildAggregateEmail(summary: DaySummary, appUrl?: string) {
-  const effectiveAppUrl = appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://wrc-psi-tau.vercel.app';
   const clinicDay = toClinicDayString(summary.date);
   const [y, m, d] = clinicDay.split("-");
   const dateStr = `${d}/${m}/${y}`;
