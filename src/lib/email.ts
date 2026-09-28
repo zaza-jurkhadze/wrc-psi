@@ -57,7 +57,7 @@ export function buildAggregateEmail(summary: DaySummary, appUrl: string) {
       summary.fixProblems || [],
     ),
     ``,
-    `პაციენტების სახელები და პირადი მონაცემები ამ წერილში არ შედის.`,
+    `პაციენტების სახელი, გვარი და პირადი მონაცემები ამ წერილში არ შედის.`,
     `დეტალების სანახავად შედით აპლიკაციაში: ${appUrl}/results`,
   ].join("\n");
 
