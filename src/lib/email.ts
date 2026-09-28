@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { AssessmentLevel } from "@prisma/client";
 import { assessmentLabel } from "./assessment";
-import { format } from "date-fns";
+import { toClinicDayString } from "./dates";
 import {
   formatTopProblemsBlock,
   type TopProblem,
@@ -30,7 +30,9 @@ function recipients(): string[] {
 }
 
 export function buildAggregateEmail(summary: DaySummary, appUrl: string) {
-  const dateStr = format(summary.date, "dd/MM/yyyy");
+  const clinicDay = toClinicDayString(summary.date);
+  const [y, m, d] = clinicDay.split("-");
+  const dateStr = `${d}/${m}/${y}`;
   const subject = `PSI ანგარიში — ${dateStr}`;
   const body = [
     `პაციენტის მომსახურების ინდექსი — ყოველდღიური რეზიუმე`,

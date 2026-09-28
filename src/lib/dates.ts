@@ -64,10 +64,7 @@ export function localDateISO(d: Date | string | number = new Date()): string {
 export function parseLocalDay(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return parseLocalDay(todayClinicDay());
-  const isoWithTz =
-    `${String(y).padStart(4, "0")}-${pad2(m)}-${pad2(d)}` +
-    `T00:00:00+0${CLINIC_UTC_OFFSET}:00`;
-  return new Date(isoWithTz);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 export function rosterDayFromParam(dateParam: string | null | undefined): Date {
