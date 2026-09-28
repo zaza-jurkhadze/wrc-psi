@@ -30,7 +30,6 @@ function recipients(): string[] {
 }
 
 export function buildAggregateEmail(summary: DaySummary, appUrl?: string) {
-  const effectiveAppUrl = appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://wrc-psi-tau.vercel.app';
   const clinicDay = toClinicDayString(summary.date);
   const [y, m, d] = clinicDay.split("-");
   const dateStr = `${d}/${m}/${y}`;
@@ -59,7 +58,7 @@ export function buildAggregateEmail(summary: DaySummary, appUrl?: string) {
     ),
     ``,
     `პაციენტების სახელი, გვარი და პირადი მონაცემები ამ წერილში არ შედის.`,
-    `დეტალების სანახავად შედით აპლიკაციაში: ${effectiveAppUrl}/results`,
+    `დეტალების სანახავად შედით აპლიკაციაში: ${appUrl}/results`, 
   ].join("\n");
 
   return { subject, body, to: recipients() };
