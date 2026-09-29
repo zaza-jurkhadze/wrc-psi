@@ -30,6 +30,8 @@ export function AppNav() {
   });
 
   async function sendDailyReport() {
+    const confirmed = window.confirm("გსურთ დღის ანგარიშის გაგზავნა?");
+    if (!confirmed) return;
     setReportBusy(true);
     setReportMsg("");
     try {
