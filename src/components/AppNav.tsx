@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "გამოკითხვა" },
   { href: "/results", label: "შედეგები" },
   { href: "/forms", label: "კითხვარები" },
+  { href: "/users", label: "მომხმარებლები" },
 ];
 
 export function AppNav() {
@@ -23,9 +24,11 @@ export function AppNav() {
     role === "QUALITY_MANAGER" ||
     role === "MEDICAL_DIRECTOR" ||
     role === "GENERAL_DIRECTOR";
+  const canSeeUsers = role === "ADMIN";
 
   const visibleLinks = links.filter((l) => {
     if (l.href === "/forms") return canSeeForms;
+    if (l.href === "/users") return canSeeUsers;
     return true;
   });
 

@@ -23,8 +23,11 @@ export async function upsertPatientsToRoster(
       departmentId = dep.id;
     }
 
-    let patient = null;
-    const whereParts: any[] = [];
+    let patient: null | { id: string; personalId: string | null; historyNumber: string | null } = null;
+    const whereParts: Array<
+      | { historyNumber: string }
+      | { personalId: string }
+    > = [];
     if (row.historyNumber) whereParts.push({ historyNumber: row.historyNumber });
     if (row.personalId) whereParts.push({ personalId: row.personalId });
 

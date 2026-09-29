@@ -93,9 +93,16 @@ export function SurveyPanel({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setAnswers(initial);
-    setComment(existing?.comment || "");
-    setError("");
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setAnswers(initial);
+      setComment(existing?.comment || "");
+      setError("");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [initial, existing?.comment, patient?.id]);
 
   if (!patient) {

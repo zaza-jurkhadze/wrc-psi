@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   startOfMonth,
   subWeeks,
@@ -38,6 +39,7 @@ type Row = {
 };
 
 export default function ResultsPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [rosterTotal, setRosterTotal] = useState(0);
   const [questionTexts, setQuestionTexts] = useState<string[]>([]);
@@ -85,34 +87,59 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
-    fetch(`/api/surveys?date=${date}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setRows(data);
-        else setRows([]);
-      })
-      .catch(() => setRows([]));
-
-    fetch(`/api/patients?date=${date}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setRosterTotal(Array.isArray(data.patients) ? data.patients.length : 0);
-      })
-      .catch(() => setRosterTotal(0));
-    setFromDate(date);
-    setToDate(date);
+    let cancelled = false;
+    (async () => {
+      const [surveysRes, patientsRes] = await Promise.allSettled([
+        fetch(`/api/surveys?date=${date}`),
+        fetch(`/api/patients?date=${date}`),
+      ]);
+      if (cancelled) return;
+      if (surveysRes.status === "fulfilled") {
+        try {
+          const data = await surveysRes.value.json();
+          setRows(Array.isArray(data) ? data : []);
+        } catch {
+          setRows([]);
+        }
+      } else {
+        setRows([]);
+      }
+      if (patientsRes.status === "fulfilled") {
+        try {
+          const data = await patientsRes.value.json();
+          setRosterTotal(Array.isArray(data.patients) ? data.patients.length : 0);
+        } catch {
+          setRosterTotal(0);
+        }
+      } else {
+        setRosterTotal(0);
+      }
+      setFromDate(date);
+      setToDate(date);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [date]);
 
   useEffect(() => {
-    fetch("/api/forms/active")
-      .then((r) => r.json())
-      .then((data) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/forms/active");
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
         const texts = (data?.questions || [])
           .map((q: { text?: string }) => String(q.text || "").trim())
           .filter(Boolean);
         setQuestionTexts(texts.slice(0, 8));
-      })
-      .catch(() => setQuestionTexts([]));
+      } catch {
+        // no-op
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -174,7 +201,7 @@ export default function ResultsPage() {
 
   function exportExcel() {
     const url = `/api/reports/export?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
-    window.location.href = url;
+    router.push(url);
   }
 
   return (

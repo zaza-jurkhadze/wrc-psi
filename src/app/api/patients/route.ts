@@ -12,7 +12,15 @@ export async function GET(req: Request) {
   const day = rosterDayFromParam(searchParams.get("date"));
   const role = session.user.role;
 
-  const patientWhereFilter: any = {};
+  const patientWhereFilter: {
+    OR?: Array<
+      | { fullName: { contains: string; mode: "insensitive" } }
+      | { personalId: { contains: string } }
+      | { historyNumber: { contains: string } }
+      | { departmentName: { contains: string; mode: "insensitive" } }
+    >;
+    departmentId?: string;
+  } = {};
   if (q) {
     patientWhereFilter.OR = [
       { fullName: { contains: q, mode: "insensitive" } },

@@ -278,6 +278,7 @@ function normalizeAnswers(
     id: string;
     type: string;
     ratingMin: number | null;
+    ratingMax: number | null;
     options: { value: string; isNegative: boolean; requireReason: boolean }[];
   }[],
 ): AnswerInput[] {
@@ -288,10 +289,8 @@ function normalizeAnswers(
     let requireReason = false;
 
     if (q.type === "RATING") {
-      const min = q.ratingMin ?? 1;
       const val = raw?.ratingValue ?? null;
-      // ქვედა 40% სკალისა — ნეგატიური
-      const max = 5;
+      const max = q.ratingMax ?? 5;
       if (val != null && val <= Math.ceil(max * 0.4)) isNegative = true;
       if (isNegative) requireReason = true;
     } else {

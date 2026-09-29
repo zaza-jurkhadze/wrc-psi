@@ -35,7 +35,16 @@ export default function FormsPage() {
   }
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/forms");
+      if (cancelled || !res.ok) return;
+      const data = await res.json();
+      setForms(Array.isArray(data) ? data : data?.forms || []);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function createForm() {

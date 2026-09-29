@@ -29,7 +29,6 @@ export default function HomePage() {
   }, [session]);
 
   const canEditToday = isTodayISO(date);
-  const todayDebug = localDateISO(); // DEBUG
   const selected = patients.find((p) => p.id === selectedId) || null;
   const questions = existing?.questionnaire?.questions?.length
     ? existing.questionnaire.questions
@@ -102,13 +101,12 @@ export default function HomePage() {
   const loadForm = useCallback(async () => {
     try {
       const res = await fetch("/api/forms/active");
-      if (!res.ok) {
-        return;
-      }
+      if (!res.ok) return [];
       const data = await res.json();
-      setFormQuestions(data?.questions || []);
+      return (data?.questions || []) as Question[];
     } catch (e) {
       console.error("loadForm failed", e);
+      return [];
     }
   }, []);
 
@@ -117,15 +115,12 @@ export default function HomePage() {
       const res = await fetch(
         `/api/surveys?patientId=${patientId}&date=${encodeURIComponent(day)}`,
       );
-      if (!res.ok) {
-        setExisting(null);
-        return;
-      }
+      if (!res.ok) return null;
       const data = await res.json();
-      setExisting(data && data.id ? data : null);
+      return data && data.id ? (data as ExistingSurvey) : null;
     } catch (e) {
       console.error("loadSurvey failed", e);
-      setExisting(null);
+      return null;
     }
   }, [date]);
 
@@ -137,12 +132,29 @@ export default function HomePage() {
   }, [query, date, loadPatients]);
 
   useEffect(() => {
-    loadForm();
+    let cancelled = false;
+    (async () => {
+      const questions = await loadForm();
+      if (!cancelled) setFormQuestions(questions);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadForm]);
 
   useEffect(() => {
-    if (selectedId) loadSurvey(selectedId, date);
-    else setExisting(null);
+    let cancelled = false;
+    (async () => {
+      if (!selectedId) {
+        if (!cancelled) setExisting(null);
+        return;
+      }
+      const result = await loadSurvey(selectedId, date);
+      if (!cancelled) setExisting(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedId, date, loadSurvey]);
 
   useEffect(() => {
