@@ -276,22 +276,54 @@ function normalizeAnswers(
   answersIn: AnswerInput[],
   questions: {
     id: string;
+    text: string;
     type: string;
     ratingMin: number | null;
     ratingMax: number | null;
     options: { value: string; isNegative: boolean; requireReason: boolean }[];
   }[],
 ): AnswerInput[] {
-  return questions.map((q) => {
+  return questions.map((q, idx) => {
+    const pos = idx + 1;
+    const label = `კითხვა #${pos} (${q.text})`;
     const raw = answersIn.find((a) => a.questionId === q.id);
-    const selectedValues = raw?.selectedValues || [];
+    const selectedValues = (raw?.selectedValues || []).filter((v) => v != null && v !== "");
+    const ratingValue =
+      raw && (raw.ratingValue === 0 || raw.ratingValue) ? Number(raw.ratingValue) : null;
+    const textValueRaw = raw?.textValue;
+    const textValue =
+      textValueRaw != null && String(textValueRaw).trim() !== ""
+        ? String(textValueRaw)
+        : null;
+
+    if (q.type === "SINGLE_CHOICE") {
+      if (selectedValues.length !== 1) {
+        throw new Error(`${label}: აირჩიეთ 1 პასუხი`);
+      }
+    } else if (q.type === "MULTI_CHOICE") {
+      if (selectedValues.length === 0) {
+        throw new Error(`${label}: აირჩიეთ მინიმუმ 1 პასუხი`);
+      }
+    } else if (q.type === "RATING") {
+      const min = q.ratingMin ?? 1;
+      const max = q.ratingMax ?? 5;
+      if (ratingValue == null || Number.isNaN(ratingValue)) {
+        throw new Error(`${label}: აუცილებელია შეფასების მითითება`);
+      }
+      if (ratingValue < min || ratingValue > max) {
+        throw new Error(`${label}: შეფასება უნდა იყოს ${min}–${max} საზრაში`);
+      }
+    } else if (q.type === "SHORT_TEXT" || q.type === "LONG_TEXT") {
+      if (!textValue) {
+        throw new Error(`${label}: აუცილებელია ტექსტის შევსება`);
+      }
+    }
+
     let isNegative = false;
     let requireReason = false;
-
     if (q.type === "RATING") {
-      const val = raw?.ratingValue ?? null;
       const max = q.ratingMax ?? 5;
-      if (val != null && val <= Math.ceil(max * 0.4)) isNegative = true;
+      if (ratingValue! <= Math.ceil(max * 0.4)) isNegative = true;
       if (isNegative) requireReason = true;
     } else {
       for (const v of selectedValues) {
@@ -301,16 +333,16 @@ function normalizeAnswers(
       }
     }
 
-    const reason = raw?.reason || null;
+    const reason = raw?.reason && String(raw.reason).trim() !== "" ? String(raw.reason) : null;
     if (requireReason && isNegative && !reason) {
-      throw new Error(`მიზეზი სავალდებულოა კითხვაზე`);
+      throw new Error(`${label}: უარყოფითი პასუხისთვის მიზეზი სავალდებულოა`);
     }
 
     return {
       questionId: q.id,
       selectedValues,
-      textValue: raw?.textValue ?? null,
-      ratingValue: raw?.ratingValue ?? null,
+      textValue,
+      ratingValue,
       reason,
       isNegative,
     };

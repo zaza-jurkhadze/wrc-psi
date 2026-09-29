@@ -10,7 +10,6 @@ type QuestionType =
   | "SHORT_TEXT"
   | "LONG_TEXT";
 
-
 type Option = {
   id: string;
   label: string;
@@ -45,6 +44,81 @@ type AnswerState = {
   ratingValue: number | null;
   reason: string;
 };
+
+type QuestionStatus = {
+  answered: boolean;
+  requireReason: boolean;
+  reasonFilled: boolean;
+  valid: boolean;
+  message?: string;
+};
+
+function evaluateQuestion(q: Question, a: AnswerState): QuestionStatus {
+  const selectedValues = (a.selectedValues || []).filter((v) => v != null && v !== "");
+  const ratingValue =
+    a.ratingValue === 0 || a.ratingValue ? Number(a.ratingValue) : null;
+  const textValue = a.textValue && a.textValue.trim() !== "" ? a.textValue : null;
+  const reasonFilled = !!(a.reason && a.reason.trim() !== "");
+
+  let answered = true;
+  let message: string | undefined;
+
+  if (q.type === "SINGLE_CHOICE") {
+    if (selectedValues.length !== 1) {
+      answered = false;
+      message = "აირჩიეთ 1 პასუხი";
+    }
+  } else if (q.type === "MULTI_CHOICE") {
+    if (selectedValues.length === 0) {
+      answered = false;
+      message = "აირჩიეთ მინიმუმ 1 პასუხი";
+    }
+  } else if (q.type === "RATING") {
+    const min = q.ratingMin ?? 1;
+    const max = q.ratingMax ?? 5;
+    if (ratingValue == null || Number.isNaN(ratingValue)) {
+      answered = false;
+      message = "არჩიეთ შეფასება";
+    } else if (ratingValue < min || ratingValue > max) {
+      answered = false;
+      message = `შეფასება ${min}–${max} საზრაში`;
+    }
+  } else if (q.type === "SHORT_TEXT" || q.type === "LONG_TEXT") {
+    if (!textValue) {
+      answered = false;
+      message = "დაწერეთ პასუხი";
+    }
+  }
+
+  let isNegative = false;
+  let requireReason = false;
+  if (q.type === "RATING") {
+    const max = q.ratingMax ?? 5;
+    if (ratingValue != null && ratingValue <= Math.ceil(max * 0.4)) {
+      isNegative = true;
+      requireReason = true;
+    }
+  } else {
+    for (const v of selectedValues) {
+      const opt = q.options.find((o) => o.value === v);
+      if (opt?.isNegative) isNegative = true;
+      if (opt?.requireReason) requireReason = true;
+    }
+  }
+
+  const reasonValid = !requireReason || !isNegative || reasonFilled;
+  if (!reasonValid) {
+    message = "მიზეზი სავალდებულოა";
+  }
+
+  return {
+    answered,
+    requireReason: requireReason && isNegative,
+    reasonFilled,
+    valid: answered && reasonValid,
+    message,
+  };
+}
 
 export function SurveyPanel({
   patient,
@@ -92,6 +166,28 @@ export function SurveyPanel({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const statuses = useMemo<Record<string, QuestionStatus>>(() => {
+    const s: Record<string, QuestionStatus> = {};
+    for (const q of questions) {
+      const a = answers[q.id] || {
+        selectedValues: [],
+        textValue: "",
+        ratingValue: null,
+        reason: "",
+      };
+      s[q.id] = evaluateQuestion(q, a);
+    }
+    return s;
+  }, [answers, questions]);
+
+  const { allValid, invalidCount } = useMemo(() => {
+    let n = 0;
+    for (const q of questions) {
+      if (!statuses[q.id]?.valid) n++;
+    }
+    return { allValid: n === 0, invalidCount: n };
+  }, [questions, statuses]);
+
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(() => {
@@ -118,6 +214,10 @@ export function SurveyPanel({
   }
 
   async function save() {
+    if (!allValid) {
+      setError(`შეავსეთ ყველა კითხვა: გაუცდელია ${invalidCount}`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -215,16 +315,21 @@ export function SurveyPanel({
             ratingValue: null,
             reason: "",
           };
-          const selectedOpt = q.options.find((o) => a.selectedValues.includes(o.value));
-          const showReason =
-            selectedOpt?.requireReason ||
-            (q.type === "RATING" && a.ratingValue != null && a.ratingValue <= 2);
+          const st = statuses[q.id];
+          const showReason = !!st?.requireReason;
 
           return (
-            <div key={q.id} className="bg-card border border-border rounded-2xl p-5 space-y-3">
+            <div
+              key={q.id}
+              className={`bg-card border rounded-2xl p-5 space-y-3 ${
+                !readOnly && st && !st.valid
+                  ? "border-fix/60 ring-2 ring-fix/15"
+                  : "border-border"
+              }`}
+            >
               <p className="font-medium">
                 {idx + 1}. {q.text}
-                {q.required && <span className="text-fix"> *</span>}
+                <span className="text-fix"> *</span>
               </p>
 
               {(q.type === "SINGLE_CHOICE" || q.type === "MULTI_CHOICE") && (
@@ -305,9 +410,12 @@ export function SurveyPanel({
                     onChange={(e) => update(q.id, { reason: e.target.value })}
                     rows={2}
                     className="mt-1 w-full rounded-xl border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-primary/25"
-                    required
                   />
                 </label>
+              )}
+
+              {!readOnly && st && !st.valid && st.message && (
+                <p className="text-fix text-xs -mt-1">✕ {st.message}</p>
               )}
             </div>
           );
@@ -333,11 +441,17 @@ export function SurveyPanel({
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || !allValid}
             onClick={save}
             className="w-full md:w-auto rounded-xl bg-primary hover:bg-primary-dark text-white px-8 py-3 font-medium disabled:opacity-60"
           >
-            {saving ? "ინახება..." : existing ? "განახლება" : "შენახვა"}
+            {saving
+              ? "ინახება..."
+              : !allValid
+              ? `${invalidCount} კითხვა პასუხგაუცემელია`
+              : existing
+              ? "განახლება"
+              : "შენახვა"}
           </button>
           <button
             type="button"
