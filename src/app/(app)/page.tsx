@@ -28,6 +28,8 @@ export default function HomePage() {
     return r === "ADMIN" || r === "QUALITY_MANAGER" || r === "INTERVIEWER";
   }, [session]);
 
+  const canManageRoster = canDelete; // same role set: ADMIN/QM/INTERVIEWER
+
   const canEditToday = isTodayISO(date);
   const selected = patients.find((p) => p.id === selectedId) || null;
   const questions = existing?.questionnaire?.questions?.length
@@ -224,6 +226,7 @@ export default function HomePage() {
           setExisting(null);
         }}
         canEditToday={canEditToday}
+        canManageRoster={canManageRoster}
         onSelect={setSelectedId}
         busy={busy}
         message={message}

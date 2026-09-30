@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, canManageSensitiveOperations } from "@/lib/auth";
 import { fetchPatientsFromHis } from "@/lib/his";
 import { upsertPatientsToRoster } from "@/lib/patients";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 export async function POST() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canManageSensitiveOperations(session.user.role))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const rows = await fetchPatientsFromHis();

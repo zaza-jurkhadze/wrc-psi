@@ -59,6 +59,7 @@ function evaluateQuestion(q: Question, a: AnswerState): QuestionStatus {
     a.ratingValue === 0 || a.ratingValue ? Number(a.ratingValue) : null;
   const textValue = a.textValue && a.textValue.trim() !== "" ? a.textValue : null;
   const reasonFilled = !!(a.reason && a.reason.trim() !== "");
+  const isRequired = q.required !== false;
 
   let answered = true;
   let message: string | undefined;
@@ -66,19 +67,19 @@ function evaluateQuestion(q: Question, a: AnswerState): QuestionStatus {
   if (q.type === "SINGLE_CHOICE") {
     if (selectedValues.length !== 1) {
       answered = false;
-      message = "აირჩიეთ 1 პასუხი";
+      if (isRequired) message = "აირჩიეთ 1 პასუხი";
     }
   } else if (q.type === "MULTI_CHOICE") {
     if (selectedValues.length === 0) {
       answered = false;
-      message = "აირჩიეთ მინიმუმ 1 პასუხი";
+      if (isRequired) message = "აირჩიეთ მინიმუმ 1 პასუხი";
     }
   } else if (q.type === "RATING") {
     const min = q.ratingMin ?? 1;
     const max = q.ratingMax ?? 5;
     if (ratingValue == null || Number.isNaN(ratingValue)) {
       answered = false;
-      message = "არჩიეთ შეფასება";
+      if (isRequired) message = "არჩიეთ შეფასება";
     } else if (ratingValue < min || ratingValue > max) {
       answered = false;
       message = `შეფასება ${min}–${max} საზრაში`;
@@ -86,8 +87,13 @@ function evaluateQuestion(q: Question, a: AnswerState): QuestionStatus {
   } else if (q.type === "SHORT_TEXT" || q.type === "LONG_TEXT") {
     if (!textValue) {
       answered = false;
-      message = "დაწერეთ პასუხი";
+      if (isRequired) message = "დაწერეთ პასუხი";
     }
+  }
+
+  if (!isRequired && !answered) {
+    answered = true;
+    message = undefined;
   }
 
   let isNegative = false;

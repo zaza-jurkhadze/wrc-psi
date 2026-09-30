@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, canEditAnySurvey } from "@/lib/auth";
+import { auth, canEditAnySurvey, canCreateSurvey } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeAssessment, type AnswerInput } from "@/lib/assessment";
 import { rosterDayFromParam, toClinicDayString, todayClinicDay } from "@/lib/dates";
@@ -12,6 +12,13 @@ export async function GET(req: Request) {
   const patientId = searchParams.get("patientId");
   const dateParam = searchParams.get("date");
   const day = rosterDayFromParam(dateParam);
+  const role = session.user.role;
+  const canSeeAll =
+    role === "ADMIN" ||
+    role === "QUALITY_MANAGER" ||
+    role === "MEDICAL_DIRECTOR" ||
+    role === "GENERAL_DIRECTOR" ||
+    role === "HEAD_NURSE";
 
   if (patientId) {
     const survey = await prisma.survey.findFirst({
@@ -28,9 +35,16 @@ export async function GET(req: Request) {
         },
         author: { select: { name: true } },
         lastEditedBy: { select: { name: true } },
-        patient: true,
+        patient: {
+          select: { id: true, departmentId: true, fullName: true, departmentName: true },
+        },
       },
     });
+    if (survey && !canSeeAll && session.user.departmentId) {
+      if (survey.patient?.departmentId !== session.user.departmentId) {
+        return NextResponse.json(null);
+      }
+    }
     return NextResponse.json(survey);
   }
 
@@ -41,7 +55,7 @@ export async function GET(req: Request) {
 
   if (dateParam) where.surveyDate = day;
 
-  if (session.user.role === "HEAD_NURSE" && session.user.departmentId) {
+  if (!canSeeAll && session.user.departmentId) {
     where.patient = { departmentId: session.user.departmentId };
   }
 
@@ -86,7 +100,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "ავტორიზაცია სავალდებულოა" }, { status: 401 });
+  if (!canCreateSurvey(session.user.role))
+    return NextResponse.json({ error: "თქვენ არ გაქვთ პაციენტის გამოკითხვის უფლება" }, { status: 403 });
 
   const body = await req.json();
   const patientId = String(body.patientId || "");
@@ -133,17 +149,38 @@ export async function POST(req: Request) {
   }
 
   if (abstained) {
-    const survey = await prisma.survey.create({
-      data: {
-        patientId,
-        questionnaireId: questionnaire.id,
-        surveyDate: day,
-        comment,
-        assessment: "ABSTAINED" as never,
-        authorId: session.user.id,
-      },
-    });
-    return NextResponse.json(survey);
+    try {
+      const survey = await prisma.survey.create({
+        data: {
+          patientId,
+          questionnaireId: questionnaire.id,
+          surveyDate: day,
+          comment,
+          assessment: "ABSTAINED" as never,
+          authorId: session.user.id,
+        },
+      });
+      return NextResponse.json(survey);
+    } catch (e) {
+      if (
+        e &&
+        typeof e === "object" &&
+        "code" in e &&
+        (e as { code: string }).code === "P2002"
+      ) {
+        const conflict = await prisma.survey.findFirst({
+          where: { patientId, surveyDate: day, questionnaireId: questionnaire.id },
+        });
+        return NextResponse.json(
+          {
+            error: "ამ პაციენტს დღეს უკვე აქვს გამოკითხვა — გამოიყენეთ რედაქტირება",
+            surveyId: conflict?.id,
+          },
+          { status: 409 },
+        );
+      }
+      throw e;
+    }
   }
 
   const questions = await prisma.question.findMany({
@@ -163,28 +200,48 @@ export async function POST(req: Request) {
     );
   }
 
-  const survey = await prisma.survey.create({
-    data: {
-      patientId,
-      questionnaireId: questionnaire.id,
-      surveyDate: day,
-      comment,
-      assessment,
-      authorId: session.user.id,
-      answers: {
-        create: normalized.map((a) => ({
-          questionId: a.questionId,
-          selectedValues: a.selectedValues,
-          textValue: a.textValue,
-          ratingValue: a.ratingValue,
-          reason: a.reason,
-          isNegative: a.isNegative,
-        })),
+  try {
+    const survey = await prisma.survey.create({
+      data: {
+        patientId,
+        questionnaireId: questionnaire.id,
+        surveyDate: day,
+        comment,
+        assessment,
+        authorId: session.user.id,
+        answers: {
+          create: normalized.map((a) => ({
+            questionId: a.questionId,
+            selectedValues: a.selectedValues,
+            textValue: a.textValue,
+            ratingValue: a.ratingValue,
+            reason: a.reason,
+            isNegative: a.isNegative,
+          })),
+        },
       },
-    },
-  });
-
-  return NextResponse.json(survey);
+    });
+    return NextResponse.json(survey);
+  } catch (e) {
+    if (
+      e &&
+      typeof e === "object" &&
+      "code" in e &&
+      (e as { code: string }).code === "P2002"
+    ) {
+      const conflict = await prisma.survey.findFirst({
+        where: { patientId, surveyDate: day, questionnaireId: questionnaire.id },
+      });
+      return NextResponse.json(
+        {
+          error: "ამ პაციენტს დღეს უკვე აქვს გამოკითხვა — გამოიყენეთ რედაქტირება",
+          surveyId: conflict?.id,
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
 }
 
 export async function PUT(req: Request) {
@@ -210,8 +267,7 @@ export async function PUT(req: Request) {
 
   const canEdit =
     canEditAnySurvey(session.user.role) ||
-    session.user.id === survey.authorId ||
-    session.user.role === "INTERVIEWER";
+    session.user.id === survey.authorId;
 
   if (!canEdit) {
     return NextResponse.json({ error: "რედაქტირება არ არის ნებადართული" }, { status: 403 });
@@ -225,14 +281,18 @@ export async function PUT(req: Request) {
   const abstained = Boolean(body.abstained);
 
   if (abstained) {
-    await prisma.answer.deleteMany({ where: { surveyId } });
-    const updated = await prisma.survey.update({
-      where: { id: surveyId },
-      data: {
-        comment: body.comment != null ? String(body.comment) : survey.comment,
-        assessment: "ABSTAINED" as never,
-        lastEditedById: session.user.id,
-      },
+    const commentData =
+      body.comment != null ? String(body.comment) : survey.comment;
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.answer.deleteMany({ where: { surveyId } });
+      return tx.survey.update({
+        where: { id: surveyId },
+        data: {
+          comment: commentData,
+          assessment: "ABSTAINED" as never,
+          lastEditedById: session.user.id,
+        },
+      });
     });
     return NextResponse.json(updated);
   }
@@ -249,24 +309,28 @@ export async function PUT(req: Request) {
     );
   }
 
-  await prisma.answer.deleteMany({ where: { surveyId } });
-  const updated = await prisma.survey.update({
-    where: { id: surveyId },
-    data: {
-      comment: body.comment != null ? String(body.comment) : survey.comment,
-      assessment,
-      lastEditedById: session.user.id,
-      answers: {
-        create: normalized.map((a) => ({
-          questionId: a.questionId,
-          selectedValues: a.selectedValues,
-          textValue: a.textValue,
-          ratingValue: a.ratingValue,
-          reason: a.reason,
-          isNegative: a.isNegative,
-        })),
+  const commentData =
+    body.comment != null ? String(body.comment) : survey.comment;
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.answer.deleteMany({ where: { surveyId } });
+    return tx.survey.update({
+      where: { id: surveyId },
+      data: {
+        comment: commentData,
+        assessment,
+        lastEditedById: session.user.id,
+        answers: {
+          create: normalized.map((a) => ({
+            questionId: a.questionId,
+            selectedValues: a.selectedValues,
+            textValue: a.textValue,
+            ratingValue: a.ratingValue,
+            reason: a.reason,
+            isNegative: a.isNegative,
+          })),
+        },
       },
-    },
+    });
   });
 
   return NextResponse.json(updated);
@@ -278,6 +342,7 @@ function normalizeAnswers(
     id: string;
     text: string;
     type: string;
+    required: boolean;
     ratingMin: number | null;
     ratingMax: number | null;
     options: { value: string; isNegative: boolean; requireReason: boolean }[];
@@ -296,25 +361,26 @@ function normalizeAnswers(
         ? String(textValueRaw)
         : null;
 
+    const isRequired = q.required !== false;
+
     if (q.type === "SINGLE_CHOICE") {
       if (selectedValues.length !== 1) {
-        throw new Error(`${label}: აირჩიეთ 1 პასუხი`);
+        if (isRequired) throw new Error(`${label}: აირჩიეთ 1 პასუხი`);
       }
     } else if (q.type === "MULTI_CHOICE") {
       if (selectedValues.length === 0) {
-        throw new Error(`${label}: აირჩიეთ მინიმუმ 1 პასუხი`);
+        if (isRequired) throw new Error(`${label}: აირჩიეთ მინიმუმ 1 პასუხი`);
       }
     } else if (q.type === "RATING") {
       const min = q.ratingMin ?? 1;
       const max = q.ratingMax ?? 5;
       if (ratingValue == null || Number.isNaN(ratingValue)) {
-        throw new Error(`${label}: აუცილებელია შეფასების მითითება`);
-      }
-      if (ratingValue < min || ratingValue > max) {
+        if (isRequired) throw new Error(`${label}: აუცილებელია შეფასების მითითება`);
+      } else if (ratingValue < min || ratingValue > max) {
         throw new Error(`${label}: შეფასება უნდა იყოს ${min}–${max} საზრაში`);
       }
     } else if (q.type === "SHORT_TEXT" || q.type === "LONG_TEXT") {
-      if (!textValue) {
+      if (!textValue && isRequired) {
         throw new Error(`${label}: აუცილებელია ტექსტის შევსება`);
       }
     }

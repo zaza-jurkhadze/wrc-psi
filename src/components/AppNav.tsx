@@ -19,12 +19,10 @@ export function AppNav() {
   const [reportMsg, setReportMsg] = useState("");
 
   const role = data?.user?.role;
-  const canSeeForms =
-    role === "ADMIN" ||
-    role === "QUALITY_MANAGER" ||
-    role === "MEDICAL_DIRECTOR" ||
-    role === "GENERAL_DIRECTOR";
+  const canSeeForms = role === "ADMIN" || role === "QUALITY_MANAGER";
   const canSeeUsers = role === "ADMIN";
+  const canSendReports =
+    role === "ADMIN" || role === "QUALITY_MANAGER" || role === "INTERVIEWER";
 
   const visibleLinks = links.filter((l) => {
     if (l.href === "/forms") return canSeeForms;
@@ -75,19 +73,23 @@ export function AppNav() {
           </Link>
         );
       })}
-      <button
-        type="button"
-        disabled={reportBusy}
-        onClick={sendDailyReport}
-        className="px-2.5 py-1.5 rounded-lg text-sm font-medium border border-white/40 text-white hover:bg-white/15 disabled:opacity-50 whitespace-nowrap cursor-pointer"
-        title={reportMsg || undefined}
-      >
-        {reportBusy ? "იგზავნება…" : "დღის ანგარიშის გაგზავნა"}
-      </button>
-      {reportMsg && (
-        <span className="text-[11px] text-white/90 truncate max-w-[180px]" title={reportMsg}>
-          {reportMsg}
-        </span>
+      {canSendReports && (
+        <>
+          <button
+            type="button"
+            disabled={reportBusy}
+            onClick={sendDailyReport}
+            className="px-2.5 py-1.5 rounded-lg text-sm font-medium border border-white/40 text-white hover:bg-white/15 disabled:opacity-50 whitespace-nowrap cursor-pointer"
+            title={reportMsg || undefined}
+          >
+            {reportBusy ? "იგზავნება…" : "დღის ანგარიშის გაგზავნა"}
+          </button>
+          {reportMsg && (
+            <span className="text-[11px] text-white/90 truncate max-w-[180px]" title={reportMsg}>
+              {reportMsg}
+            </span>
+          )}
+        </>
       )}
     </nav>
   );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AssessmentLevel } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { auth, canSendReports } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildAggregateEmail, countByAssessment, sendMail } from "@/lib/email";
 import { topProblemsByAssessment } from "@/lib/problems";
@@ -10,6 +10,8 @@ import { rosterDayFromParam } from "@/lib/dates";
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canSendReports(session.user.role))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
   const day = rosterDayFromParam(body.date ? String(body.date) : undefined);

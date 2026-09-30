@@ -30,8 +30,20 @@ export default function FormsPage() {
   }, [session, router]);
 
   async function load() {
-    const res = await fetch("/api/forms");
-    setForms(await res.json());
+    try {
+      const res = await fetch("/api/forms");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMsg(data.error || "კითხვარების ჩატვირთვა ვერ მოხერხდა");
+        setForms([]);
+        return;
+      }
+      const data = await res.json();
+      setForms(Array.isArray(data) ? data : data?.forms || []);
+    } catch {
+      setMsg("კითხვარების ჩატვირთვა ვერ მოხერხდა");
+      setForms([]);
+    }
   }
 
   useEffect(() => {

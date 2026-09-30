@@ -35,6 +35,7 @@ export function PatientSidebar({
   date,
   onDateChange,
   canEditToday = true,
+  canManageRoster = true,
 }: {
   patients: RosterPatient[];
   selectedId: string | null;
@@ -53,6 +54,7 @@ export function PatientSidebar({
   date: string;
   onDateChange: (iso: string) => void;
   canEditToday?: boolean;
+  canManageRoster?: boolean;
 }) {
   const [deptFilter, setDeptFilter] = useState<string>("all");
 
@@ -210,38 +212,42 @@ export function PatientSidebar({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            disabled={busy || !canEditToday}
-            onClick={onRefreshApi}
-            className="rounded-lg bg-primary text-white text-xs py-1.5 px-2 hover:bg-primary-dark disabled:opacity-50"
-          >
-            პაციენტების განახლება
-          </button>
-          <button
-            type="button"
-            disabled={busy || !canEditToday}
-            onClick={onAddPatient}
-            className="rounded-lg border border-border text-xs py-1.5 px-2 hover:bg-accent disabled:opacity-50"
-          >
-            ახალი პაციენტი
-          </button>
-        </div>
-        <label className="block">
-          <span className="sr-only">Excel იმპორტი</span>
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            disabled={busy || !canEditToday}
-            className="block w-full text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-primary file:font-medium disabled:opacity-50"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onImportExcel(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
+        {canManageRoster && (
+          <>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                disabled={busy || !canEditToday}
+                onClick={onRefreshApi}
+                className="rounded-lg bg-primary text-white text-xs py-1.5 px-2 hover:bg-primary-dark disabled:opacity-50"
+              >
+                პაციენტების განახლება
+              </button>
+              <button
+                type="button"
+                disabled={busy || !canEditToday}
+                onClick={onAddPatient}
+                className="rounded-lg border border-border text-xs py-1.5 px-2 hover:bg-accent disabled:opacity-50"
+              >
+                ახალი პაციენტი
+              </button>
+            </div>
+            <label className="block">
+              <span className="sr-only">Excel იმპორტი</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                disabled={busy || !canEditToday}
+                className="block w-full text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-primary file:font-medium disabled:opacity-50"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onImportExcel(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </>
+        )}
         {message && <p className="text-xs text-muted">{message}</p>}
       </div>
 

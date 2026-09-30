@@ -1,17 +1,27 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, canManageSensitiveOperations } from "@/lib/auth";
 import { parsePatientsExcel } from "@/lib/excel";
 import { upsertPatientsToRoster } from "@/lib/patients";
 import { rosterDayFromParam, toClinicDayString, todayClinicDay } from "@/lib/dates";
 
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canManageSensitiveOperations(session.user.role))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "ფაილი არ არის" }, { status: 400 });
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `ფაილი ძალიან დიდია (მაქს. ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB)` },
+      { status: 413 },
+    );
   }
 
   const day = rosterDayFromParam(

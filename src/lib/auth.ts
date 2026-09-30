@@ -69,9 +69,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.departmentId = token.departmentId;
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: String(token.id) },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              departmentId: true,
+              active: true,
+            },
+          });
+          if (!fresh || !fresh.active) {
+            return { user: undefined, expires: session.expires };
+          }
+          session.user.id = fresh.id;
+          session.user.email = fresh.email;
+          session.user.name = fresh.name;
+          session.user.role = fresh.role;
+          session.user.departmentId = fresh.departmentId;
+        } catch {
+          session.user.id = String(token.id);
+          session.user.role = token.role;
+          session.user.departmentId = token.departmentId;
+        }
       }
       return session;
     },
@@ -80,21 +102,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export function canEditAnySurvey(role: Role) {
-  return (
-    role === "ADMIN" ||
-    role === "QUALITY_MANAGER" ||
-    role === "MEDICAL_DIRECTOR" ||
-    role === "GENERAL_DIRECTOR"
-  );
+  return role === "ADMIN" || role === "QUALITY_MANAGER";
 }
 
 export function canManageForms(role: Role) {
-  return (
-    role === "ADMIN" ||
-    role === "QUALITY_MANAGER" ||
-    role === "MEDICAL_DIRECTOR" ||
-    role === "GENERAL_DIRECTOR"
-  );
+  return role === "ADMIN" || role === "QUALITY_MANAGER";
 }
 
 export function canManageDailyRoster(role: Role) {
@@ -106,6 +118,27 @@ export function canSeeAllDepartments(role: Role) {
     role === "ADMIN" ||
     role === "QUALITY_MANAGER" ||
     role === "MEDICAL_DIRECTOR" ||
-    role === "GENERAL_DIRECTOR"
+    role === "GENERAL_DIRECTOR" ||
+    role === "HEAD_NURSE"
+  );
+}
+
+export function canCreateSurvey(role: Role) {
+  return (
+    role === "ADMIN" ||
+    role === "QUALITY_MANAGER" ||
+    role === "INTERVIEWER"
+  );
+}
+
+export function canManageSensitiveOperations(role: Role) {
+  return role === "ADMIN" || role === "QUALITY_MANAGER";
+}
+
+export function canSendReports(role: Role) {
+  return (
+    role === "ADMIN" ||
+    role === "QUALITY_MANAGER" ||
+    role === "INTERVIEWER"
   );
 }
