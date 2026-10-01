@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+type ScannerHandle = {
+  stop: () => Promise<null>;
+  clear: () => void;
+  getState: () => number;
+};
+
+/** html5-qrcode: 2 = scanning */
+const SCANNING_STATE = 2;
 
 export function PatientQrScanner({
   open,
@@ -12,40 +21,75 @@ export function PatientQrScanner({
   onScan: (text: string) => void;
 }) {
   const regionId = useId().replace(/:/g, "");
-  const scannerRef = useRef<{ stop: () => Promise<unknown>; clear: () => void } | null>(
-    null,
-  );
+  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState("");
-  const handledRef = useRef(false);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
   onScanRef.current = onScan;
   onCloseRef.current = onClose;
 
-  useEffect(() => {
-    if (!open) return;
+  const stopRef = useRef<(() => Promise<void>) | null>(null);
 
-    handledRef.current = false;
-    setError("");
+  useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     let cancelled = false;
+    let scanned = false;
+    let scanner: ScannerHandle | null = null;
+    let stopInFlight: Promise<void> | null = null;
+
+    const safeStop = (): Promise<void> => {
+      if (stopInFlight) return stopInFlight;
+
+      stopInFlight = (async () => {
+        const s = scanner;
+        scanner = null;
+        if (!s) return;
+
+        try {
+          if (s.getState() === SCANNING_STATE) {
+            await s.stop();
+          }
+        } catch {
+          /* already stopped */
+        }
+        try {
+          s.clear();
+        } catch {
+          /* DOM may be gone */
+        }
+      })();
+
+      return stopInFlight;
+    };
+
+    stopRef.current = safeStop;
 
     void (async () => {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      if (cancelled) return;
-
-      const scanner = new Html5Qrcode(regionId);
-      scannerRef.current = scanner;
-
       try {
-        await scanner.start(
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (cancelled) return;
+
+        const instance = new Html5Qrcode(regionId, false);
+        scanner = instance as unknown as ScannerHandle;
+
+        await instance.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 260, height: 260 } },
           (decoded) => {
-            if (handledRef.current) return;
-            handledRef.current = true;
-            onScanRef.current(decoded);
-            void scanner.stop().then(() => scanner.clear());
-            onCloseRef.current();
+            if (scanned) return;
+            scanned = true;
+            void (async () => {
+              await safeStop();
+              if (cancelled) return;
+              onScanRef.current(decoded);
+              setMounted(false);
+              onCloseRef.current();
+            })();
           },
           () => {},
         );
@@ -59,23 +103,20 @@ export function PatientQrScanner({
 
     return () => {
       cancelled = true;
-      const s = scannerRef.current;
-      scannerRef.current = null;
-      if (!s) return;
-      void s
-        .stop()
-        .catch(() => {})
-        .finally(() => {
-          try {
-            s.clear();
-          } catch {
-            /* ignore */
-          }
-        });
+      stopRef.current = null;
+      void safeStop();
     };
-  }, [open, regionId]);
+  }, [mounted, regionId]);
 
-  if (!open) return null;
+  const requestClose = useCallback(() => {
+    void (async () => {
+      await stopRef.current?.();
+      setMounted(false);
+      onCloseRef.current();
+    })();
+  }, []);
+
+  if (!mounted) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
@@ -84,13 +125,13 @@ export function PatientQrScanner({
           <h3 className="text-base font-semibold">QR სკანერი</h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-accent"
           >
             დახურვა
           </button>
         </div>
-        <div id={regionId} className="overflow-hidden rounded-xl" />
+        <div id={regionId} className="overflow-hidden rounded-xl min-h-[240px]" />
         {error && <p className="mt-3 text-sm text-fix">{error}</p>}
         <p className="mt-3 text-xs text-muted">
           მიმართეთ კამერა სამაჯურის QR კოდს. ველები ავტომატურად შეივსება.
