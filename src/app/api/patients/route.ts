@@ -105,15 +105,15 @@ export async function POST(req: Request) {
   }
 
   const departmentName = String(body.departmentName || "").trim();
-  if (!departmentName) {
-    return NextResponse.json({ error: "განყოფილება სავალდებულოა" }, { status: 400 });
+  let departmentId: string | null = null;
+  if (departmentName) {
+    const dep = await prisma.department.upsert({
+      where: { name: departmentName },
+      create: { name: departmentName },
+      update: {},
+    });
+    departmentId = dep.id;
   }
-  const dep = await prisma.department.upsert({
-    where: { name: departmentName },
-    create: { name: departmentName },
-    update: {},
-  });
-  const departmentId = dep.id;
 
   const historyNumber = String(body.historyNumber || "").trim();
   if (!historyNumber) {
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
       historyNumber,
       careType: body.careType || null,
       doctorName: body.doctorName || null,
-      departmentName,
+      departmentName: departmentName || null,
       departmentId,
       source: "manual",
     },
