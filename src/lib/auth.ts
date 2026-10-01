@@ -135,6 +135,15 @@ export function canManageSensitiveOperations(role: Role) {
   return role === "ADMIN" || role === "QUALITY_MANAGER";
 }
 
+/** Excel / HIS — პაციენტების roster-ში ჩატვირთვა */
+export function canUploadPatients(role: Role) {
+  return (
+    role === "ADMIN" ||
+    role === "QUALITY_MANAGER" ||
+    role === "INTERVIEWER"
+  );
+}
+
 export function canSendReports(role: Role) {
   return (
     role === "ADMIN" ||

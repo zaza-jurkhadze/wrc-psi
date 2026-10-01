@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, canManageSensitiveOperations } from "@/lib/auth";
+import { auth, canUploadPatients } from "@/lib/auth";
 import { parsePatientsExcel } from "@/lib/excel";
 import { upsertPatientsToRoster } from "@/lib/patients";
 import { rosterDayFromParam, toClinicDayString, todayClinicDay } from "@/lib/dates";
@@ -9,7 +9,7 @@ const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageSensitiveOperations(session.user.role))
+  if (!canUploadPatients(session.user.role))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const form = await req.formData();
