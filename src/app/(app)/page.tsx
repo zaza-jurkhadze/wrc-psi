@@ -29,8 +29,8 @@ export default function HomePage() {
   }, [session]);
 
   const canManageRoster = canDelete; // same role set: ADMIN/QM/INTERVIEWER
-
   const canEditToday = isTodayISO(date);
+  const canEditPatientDemographics = canManageRoster && canEditToday;
   const selected = patients.find((p) => p.id === selectedId) || null;
   const questions = existing?.questionnaire?.questions?.length
     ? existing.questionnaire.questions
@@ -267,10 +267,18 @@ export default function HomePage() {
           existing={existing}
           surveyDate={date}
           readOnly={!canEditToday}
+          canEditPatientDemographics={canEditPatientDemographics}
           onSaved={async () => {
             await loadPatients();
-            if (selectedId) await loadSurvey(selectedId);
+            if (selectedId) {
+              const result = await loadSurvey(selectedId);
+              setExisting(result);
+            }
             setMessage("გამოკითხვა შენახულია");
+          }}
+          onPatientUpdated={async () => {
+            await loadPatients();
+            setMessage("პაციენტის მონაცემები განახლდა");
           }}
         />
       </div>

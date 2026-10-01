@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
 import { isNotApplicableAnswer } from "@/lib/notApplicable";
+import { EditPatientModal } from "@/components/EditPatientModal";
 
 type QuestionType =
   | "SINGLE_CHOICE"
@@ -34,6 +35,7 @@ type Patient = {
   fullName: string;
   personalId: string | null;
   historyNumber: string | null;
+  source?: string;
   departmentName: string | null;
   age: number | null;
   doctorName: string | null;
@@ -136,8 +138,10 @@ export function SurveyPanel({
   questions,
   existing,
   onSaved,
+  onPatientUpdated,
   surveyDate,
   readOnly = false,
+  canEditPatientDemographics = false,
 }: {
   patient: Patient | null;
   questions: Question[];
@@ -155,8 +159,10 @@ export function SurveyPanel({
     questionnaire?: { questions?: Question[] } | null;
   } | null;
   onSaved: () => void;
+  onPatientUpdated?: () => void;
   surveyDate: string;
   readOnly?: boolean;
+  canEditPatientDemographics?: boolean;
 }) {
   const initial = useMemo(() => {
     const map: Record<string, AnswerState> = {};
@@ -176,6 +182,21 @@ export function SurveyPanel({
   const [comment, setComment] = useState(existing?.comment || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editPatientOpen, setEditPatientOpen] = useState(false);
+  const [patientBusy, setPatientBusy] = useState(false);
+
+  const emptyAnswers = useMemo(() => {
+    const map: Record<string, AnswerState> = {};
+    for (const q of questions) {
+      map[q.id] = {
+        selectedValues: [],
+        textValue: "",
+        ratingValue: null,
+        reason: "",
+      };
+    }
+    return map;
+  }, [questions]);
 
   const statuses = useMemo<Record<string, QuestionStatus>>(() => {
     const s: Record<string, QuestionStatus> = {};
@@ -198,6 +219,24 @@ export function SurveyPanel({
     }
     return { allValid: n === 0, invalidCount: n };
   }, [questions, statuses]);
+
+  const draftDirty = useMemo(() => {
+    if (existing) return false;
+    if (comment.trim()) return true;
+    for (const q of questions) {
+      const a = answers[q.id];
+      if (!a) continue;
+      if (a.reason.trim() || a.textValue.trim()) return true;
+      if (a.ratingValue != null) return true;
+      if (a.selectedValues.length > 0) return true;
+    }
+    return false;
+  }, [answers, comment, existing, questions]);
+
+  const canEditManualPatient =
+    canEditPatientDemographics &&
+    !readOnly &&
+    patient?.source === "manual";
 
   useEffect(() => {
     let cancelled = false;
@@ -260,6 +299,42 @@ export function SurveyPanel({
     }
   }
 
+  function cancelDraft() {
+    if (existing) return;
+    if (!draftDirty) return;
+    if (
+      !confirm(
+        "გაუქმდეს შევსებული პასუხები? (შენახული გამოკითხვა არ შეიცვლება)",
+      )
+    ) {
+      return;
+    }
+    setAnswers(emptyAnswers);
+    setComment("");
+    setError("");
+  }
+
+  async function savePatientDemographics(data: {
+    id: string;
+    fullName: string;
+    personalId: string;
+    historyNumber: string;
+  }) {
+    setPatientBusy(true);
+    try {
+      const res = await fetch("/api/patients", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "რედაქტირება ვერ მოხერხდა");
+      onPatientUpdated?.();
+    } finally {
+      setPatientBusy(false);
+    }
+  }
+
   async function abstain() {
     if (!confirm("პაციენტმა თავი შეიკავა გამოკითხვისგან?")) return;
     setSaving(true);
@@ -290,27 +365,40 @@ export function SurveyPanel({
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-6">
       <div className="max-w-3xl mx-auto space-y-5">
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold">{patient.fullName}</h1>
-              <p className="text-sm text-muted mt-1">
-                {patient.departmentName || "—"}
-                {patient.historyNumber ? ` · ისტორია ${patient.historyNumber}` : ""}
-                {patient.personalId ? ` · პ/ნ ${patient.personalId}` : ""}
-                {patient.age != null ? ` · ${patient.age} წ` : ""}
-              </p>
-              {patient.doctorName && (
-                <p className="text-sm text-muted">ექიმი: {patient.doctorName}</p>
-              )}
-            </div>
-            {existing && (
-              <span className="text-sm px-3 py-1 rounded-full bg-accent text-primary">
-                {assessmentLabel(existing.assessment)}
-                {readOnly ? " · ნახვა" : " · რედაქტირება"}
-              </span>
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
+          <div>
+            <h1 className="text-xl font-semibold">{patient.fullName}</h1>
+            <p className="text-sm text-muted mt-1">
+              {patient.departmentName || "—"}
+              {patient.historyNumber ? ` · ისტორია ${patient.historyNumber}` : ""}
+              {patient.personalId ? ` · პ/ნ ${patient.personalId}` : ""}
+              {patient.age != null ? ` · ${patient.age} წ` : ""}
+            </p>
+            {patient.doctorName && (
+              <p className="text-sm text-muted">ექიმი: {patient.doctorName}</p>
             )}
           </div>
+          {(canEditManualPatient || existing) && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {canEditManualPatient ? (
+                <button
+                  type="button"
+                  onClick={() => setEditPatientOpen(true)}
+                  className="text-sm rounded-xl border border-border px-3 py-1.5 hover:bg-accent"
+                >
+                  პაციენტის რედაქტირება
+                </button>
+              ) : (
+                <span />
+              )}
+              {existing && (
+                <span className="text-sm px-3 py-1 rounded-full bg-accent text-primary ml-auto">
+                  {assessmentLabel(existing.assessment)}
+                  {readOnly ? " · მხოლოდ ნახვა" : ""}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {readOnly && (
@@ -466,31 +554,59 @@ export function SurveyPanel({
         {error && <p className="text-fix text-sm">{error}</p>}
 
         {!readOnly && (
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={saving || !allValid}
-            onClick={save}
-            className="w-full md:w-auto rounded-xl bg-primary hover:bg-primary-dark text-white px-8 py-3 font-medium disabled:opacity-60"
-          >
-            {saving
-              ? "ინახება..."
-              : !allValid
-              ? `${invalidCount} კითხვა პასუხგაუცემელია`
-              : existing
-              ? "განახლება"
-              : "შენახვა"}
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={abstain}
-            className="w-full md:w-auto rounded-xl border border-border text-muted px-6 py-3 font-medium hover:bg-accent disabled:opacity-60"
-          >
-            თავი შეიკავა
-          </button>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full items-stretch sm:items-center">
+            <button
+              type="button"
+              disabled={saving || !allValid}
+              onClick={save}
+              className="w-full rounded-xl bg-primary hover:bg-primary-dark text-white px-8 py-3 font-medium disabled:opacity-60 sm:justify-self-start"
+            >
+              {saving
+                ? "ინახება..."
+                : !allValid
+                  ? `${invalidCount} კითხვა პასუხგაუცემელია`
+                  : existing
+                    ? "განახლება"
+                    : "შენახვა"}
+            </button>
+            <button
+              type="button"
+              disabled={saving || !!existing || !draftDirty}
+              onClick={cancelDraft}
+              title={
+                existing
+                  ? "შენახულ გამოკითხვაზე გაუქმება არ მუშაობს"
+                  : !draftDirty
+                    ? "შესავსები ცვლილება არ არის"
+                    : undefined
+              }
+              className="w-full rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent disabled:opacity-60 sm:justify-self-center"
+            >
+              გაუქმება
+            </button>
+            <button
+              type="button"
+              disabled={saving || !!existing}
+              onClick={abstain}
+              title={
+                existing
+                  ? "შეფასება უკვე შენახულია — თავის შეკავება აღარ შეიძლება"
+                  : undefined
+              }
+              className="w-full rounded-xl border border-border text-muted px-6 py-3 font-medium hover:bg-accent disabled:opacity-60 sm:justify-self-end"
+            >
+              თავი შეიკავა
+            </button>
+          </div>
         )}
+
+        <EditPatientModal
+          open={editPatientOpen}
+          busy={patientBusy}
+          patient={patient}
+          onClose={() => setEditPatientOpen(false)}
+          onSubmit={savePatientDemographics}
+        />
       </div>
     </div>
   );

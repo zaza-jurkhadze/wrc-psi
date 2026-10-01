@@ -9,6 +9,7 @@ export type RosterPatient = {
   fullName: string;
   personalId: string | null;
   historyNumber: string | null;
+  source?: string;
   departmentName: string | null;
   age: number | null;
   doctorName: string | null;

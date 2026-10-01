@@ -146,6 +146,68 @@ export async function POST(req: Request) {
   return NextResponse.json(patient);
 }
 
+export async function PATCH(req: Request) {
+  const session = await auth();
+  if (!session?.user || !canManageDailyRoster(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const id = String(body.id || "").trim();
+  if (!id) {
+    return NextResponse.json({ error: "id სავალდებულოა" }, { status: 400 });
+  }
+
+  const patient = await prisma.patient.findUnique({ where: { id } });
+  if (!patient) {
+    return NextResponse.json({ error: "პაციენტი ვერ მოიძებნა" }, { status: 404 });
+  }
+  if (patient.source !== "manual") {
+    return NextResponse.json(
+      { error: "რედაქტირება შესაძლებელია მხოლოდ ხელით დამატებულ პაციენტზე" },
+      { status: 403 },
+    );
+  }
+
+  const fullName = String(body.fullName || "").trim();
+  if (!fullName) {
+    return NextResponse.json({ error: "სახელი და გვარი სავალდებულოა" }, { status: 400 });
+  }
+  if (!/^[\p{L}\s'\-]+$/u.test(fullName)) {
+    return NextResponse.json(
+      { error: "სახელსა და გვარში მხოლოდ ასოებია დაშვებული" },
+      { status: 400 },
+    );
+  }
+
+  const personalIdRaw = String(body.personalId || "").trim();
+  if (!personalIdRaw) {
+    return NextResponse.json({ error: "პირადი ნომერი სავალდებულოა" }, { status: 400 });
+  }
+  if (!/^\d+$/.test(personalIdRaw)) {
+    return NextResponse.json(
+      { error: "პირად ნომერში მხოლოდ ციფრებია დაშვებული" },
+      { status: 400 },
+    );
+  }
+
+  const historyNumber = String(body.historyNumber || "").trim();
+  if (!historyNumber) {
+    return NextResponse.json({ error: "ისტორიის ნომერი სავალდებულოა" }, { status: 400 });
+  }
+
+  const updated = await prisma.patient.update({
+    where: { id },
+    data: {
+      fullName,
+      personalId: personalIdRaw,
+      historyNumber,
+    },
+  });
+
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(req: Request) {
   const session = await auth();
   if (!session?.user || !canManageDailyRoster(session.user.role)) {
