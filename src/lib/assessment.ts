@@ -10,17 +10,21 @@ export type AnswerInput = {
   isNegative: boolean;
 };
 
-/** კარგია / საყურადღებოა / გამოსასწორებელია */
+/**
+ * კარგი პასუხების % (N/A — მიზეზი 0 — არ входят).
+ * ≥70% კარგია · 50–69% საყურადღებოა · &lt;50% გამოსასწორებელია
+ * (30–50% ზონა შედის „გამოსასწორებელში“).
+ */
 export function computeAssessment(answers: AnswerInput[]): AssessmentLevel {
   const scorable = answersForScoring(answers);
   if (scorable.length === 0) return AssessmentLevel.GOOD;
 
-  const negativeCount = scorable.filter((a) => a.isNegative).length;
-  const ratio = negativeCount / scorable.length;
+  const goodCount = scorable.filter((a) => !a.isNegative).length;
+  const goodPercent = (goodCount / scorable.length) * 100;
 
-  if (negativeCount === 0) return AssessmentLevel.GOOD;
-  if (ratio >= 0.5) return AssessmentLevel.FIX_NEEDED;
-  return AssessmentLevel.ATTENTION;
+  if (goodPercent >= 70) return AssessmentLevel.GOOD;
+  if (goodPercent >= 50) return AssessmentLevel.ATTENTION;
+  return AssessmentLevel.FIX_NEEDED;
 }
 
 export { assessmentLabel } from "./labels";
