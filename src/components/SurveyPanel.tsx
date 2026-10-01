@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
+import { isNotApplicableAnswer } from "@/lib/notApplicable";
 
 type QuestionType =
   | "SINGLE_CHOICE"
@@ -112,14 +113,18 @@ function evaluateQuestion(q: Question, a: AnswerState): QuestionStatus {
     }
   }
 
-  const reasonValid = !requireReason || !isNegative || reasonFilled;
+  const notApplicable =
+    isNegative && (a.reason ?? "").trim() === "0";
+
+  const reasonValid =
+    notApplicable || !requireReason || !isNegative || reasonFilled;
   if (!reasonValid) {
     message = "მიზეზი სავალდებულოა";
   }
 
   return {
     answered,
-    requireReason: requireReason && isNegative,
+    requireReason: requireReason && isNegative && !notApplicable,
     reasonFilled,
     valid: answered && reasonValid,
     message,
@@ -410,6 +415,11 @@ export function SurveyPanel({
               {showReason && (
                 <label className="block">
                   <span className="text-sm text-muted">მიზეზი / კომენტარი *</span>
+                  <p className="text-xs text-muted mt-0.5">
+                    თუ კითხვა არ ეხება (მაგ. ახალი სემესტრი), ჩაწერეთ{" "}
+                    <span className="font-medium">0</span> — შეფასებაში არ
+                    ჩაითვლება.
+                  </p>
                   <textarea
                     value={a.reason}
                     readOnly={readOnly}
@@ -417,6 +427,18 @@ export function SurveyPanel({
                     rows={2}
                     className="mt-1 w-full rounded-xl border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-primary/25"
                   />
+                  {isNotApplicableAnswer({
+                    isNegative: q.options.some(
+                      (o) =>
+                        o.isNegative &&
+                        (a.selectedValues || []).includes(o.value),
+                    ),
+                    reason: a.reason,
+                  }) && (
+                    <p className="text-xs text-muted mt-1">
+                      არ ეხება — ეს კითხვა შეფასებას არ ცვლის.
+                    </p>
+                  )}
                 </label>
               )}
 

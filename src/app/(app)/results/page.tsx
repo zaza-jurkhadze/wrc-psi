@@ -11,6 +11,7 @@ import {
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
 import { topProblemsByAssessment, type TopProblem } from "@/lib/problems";
 import { localDateISO, prevDayISO, nextDayISO, isTodayISO } from "@/lib/dates";
+import { isNotApplicableAnswer } from "@/lib/notApplicable";
 
 type AnswerRow = {
   questionId: string;
@@ -414,12 +415,23 @@ export default function ResultsPage() {
                               <p className="text-sm font-medium">
                                 {idx + 1}. {a.question?.text || "კითხვა"}
                               </p>
-                              <p className="text-sm text-muted">პასუხი: {answerText(a)}</p>
-                              {a.reason && (
-                                <p className="text-sm">
-                                  <span className="text-muted">მიზეზი: </span>
-                                  {a.reason}
+                              {isNotApplicableAnswer(a) ? (
+                                <p className="text-sm text-muted">
+                                  (მიზეზი 0) - პასუხი არ აქვს, რადგან ეს
+                                  მომსახურება ჯერ არ მიუღია
                                 </p>
+                              ) : (
+                                <>
+                                  <p className="text-sm text-muted">
+                                    პასუხი: {answerText(a)}
+                                  </p>
+                                  {a.reason && (
+                                    <p className="text-sm">
+                                      <span className="text-muted">მიზეზი: </span>
+                                      {a.reason}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           ))}

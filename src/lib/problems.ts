@@ -1,3 +1,5 @@
+import { isNotApplicableAnswer } from "./notApplicable";
+
 export type TopProblem = {
   question: string;
   count: number;
@@ -36,6 +38,8 @@ export function topProblemsByAssessment(
     for (const a of s.answers || []) {
       const text = a.question?.text?.trim() || "უცნობი კითხვა";
       if (!counts.has(text)) counts.set(text, 0);
+
+      if (isNotApplicableAnswer(a)) continue;
 
       const isProblem = Boolean(a.isNegative) || Boolean(a.reason?.trim());
       if (isProblem) {

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { assessmentLabel } from "@/lib/labels";
 import { parseLocalDay, toClinicDayString, todayClinicDay } from "@/lib/dates";
+import { isNotApplicableAnswer } from "@/lib/notApplicable";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -60,6 +61,8 @@ export async function GET(req: Request) {
     };
 
     s.answers.forEach((a, idx) => {
+      if (isNotApplicableAnswer(a)) return;
+
       let answerText = "";
       if (a.ratingValue != null) answerText = String(a.ratingValue);
       else if (a.selectedValues && a.selectedValues.length > 0)

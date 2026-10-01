@@ -1,4 +1,5 @@
 import { AssessmentLevel } from "@prisma/client";
+import { answersForScoring } from "./notApplicable";
 
 export type AnswerInput = {
   questionId: string;
@@ -11,10 +12,11 @@ export type AnswerInput = {
 
 /** კარგია / საყურადღებოა / გამოსასწორებელია */
 export function computeAssessment(answers: AnswerInput[]): AssessmentLevel {
-  if (answers.length === 0) return AssessmentLevel.ATTENTION;
+  const scorable = answersForScoring(answers);
+  if (scorable.length === 0) return AssessmentLevel.GOOD;
 
-  const negativeCount = answers.filter((a) => a.isNegative).length;
-  const ratio = negativeCount / answers.length;
+  const negativeCount = scorable.filter((a) => a.isNegative).length;
+  const ratio = negativeCount / scorable.length;
 
   if (negativeCount === 0) return AssessmentLevel.GOOD;
   if (ratio >= 0.5) return AssessmentLevel.FIX_NEEDED;
