@@ -211,6 +211,14 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col md:flex-row min-h-[calc(100vh-73px)]">
+      {message === "შენახულია" && (
+        <div
+          className="md:hidden sticky top-[73px] z-40 mx-3 mt-2 rounded-xl bg-good/15 border border-good/30 text-good text-sm font-medium px-4 py-2 text-center"
+          role="status"
+        >
+          შენახულია
+        </div>
+      )}
       <PatientSidebar
         patients={patients}
         selectedId={selectedId}
@@ -270,11 +278,12 @@ export default function HomePage() {
           canEditPatientDemographics={canEditPatientDemographics}
           onSaved={async () => {
             await loadPatients();
-            if (selectedId) {
-              const result = await loadSurvey(selectedId);
-              setExisting(result);
+            setExisting(null);
+            setSelectedId(null);
+            setMessage("შენახულია");
+            if (typeof window !== "undefined") {
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }
-            setMessage("გამოკითხვა შენახულია");
           }}
           onPatientUpdated={async () => {
             await loadPatients();

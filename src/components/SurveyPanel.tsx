@@ -158,7 +158,7 @@ export function SurveyPanel({
     }[];
     questionnaire?: { questions?: Question[] } | null;
   } | null;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   onPatientUpdated?: () => void;
   surveyDate: string;
   readOnly?: boolean;
@@ -291,7 +291,7 @@ export function SurveyPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "შენახვა ვერ მოხერხდა");
-      onSaved();
+      await onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "შეცდომა");
     } finally {
@@ -354,7 +354,7 @@ export function SurveyPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "შენახვა ვერ მოხერხდა");
-      onSaved();
+      await onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "შეცდომა");
     } finally {
@@ -554,20 +554,52 @@ export function SurveyPanel({
         {error && <p className="text-fix text-sm">{error}</p>}
 
         {!readOnly && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full items-stretch sm:items-center">
+          <div className="flex flex-row gap-2 w-full items-center portrait:flex-wrap landscape:grid landscape:grid-cols-3 landscape:gap-3">
             <button
               type="button"
               disabled={saving || !allValid}
               onClick={save}
-              className="w-full rounded-xl bg-primary hover:bg-primary-dark text-white px-8 py-3 font-medium disabled:opacity-60 sm:justify-self-start"
-            >
-              {saving
-                ? "ინახება..."
-                : !allValid
+              title={
+                !allValid
                   ? `${invalidCount} კითხვა პასუხგაუცემელია`
                   : existing
                     ? "განახლება"
-                    : "შენახვა"}
+                    : "შენახვა"
+              }
+              aria-label={
+                saving
+                  ? "ინახება"
+                  : existing
+                    ? "განახლება"
+                    : "შენახვა"
+              }
+              className="shrink-0 inline-flex items-center justify-center rounded-xl bg-primary hover:bg-primary-dark text-white h-11 w-11 portrait:w-11 landscape:w-auto landscape:min-w-0 landscape:px-8 landscape:py-3 font-medium disabled:opacity-60 landscape:justify-self-start"
+            >
+              <span className="hidden portrait:inline-flex landscape:hidden" aria-hidden>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+              </span>
+              <span className="hidden landscape:inline">
+                {saving
+                  ? "ინახება..."
+                  : !allValid
+                    ? `${invalidCount} კითხვა პასუხგაუცემელია`
+                    : existing
+                      ? "განახლება"
+                      : "შენახვა"}
+              </span>
             </button>
             <button
               type="button"
@@ -578,11 +610,27 @@ export function SurveyPanel({
                   ? "შენახულ გამოკითხვაზე გაუქმება არ მუშაობს"
                   : !draftDirty
                     ? "შესავსები ცვლილება არ არის"
-                    : undefined
+                    : "გაუქმება"
               }
-              className="w-full rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent disabled:opacity-60 sm:justify-self-center"
+              aria-label="გაუქმება"
+              className="shrink-0 inline-flex items-center justify-center rounded-xl border border-border h-11 w-11 portrait:w-11 landscape:w-auto landscape:px-6 landscape:py-3 font-medium hover:bg-accent disabled:opacity-60 landscape:justify-self-center"
             >
-              გაუქმება
+              <span className="hidden portrait:inline-flex landscape:hidden" aria-hidden>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </span>
+              <span className="hidden landscape:inline">გაუქმება</span>
             </button>
             <button
               type="button"
@@ -593,7 +641,7 @@ export function SurveyPanel({
                   ? "შეფასება უკვე შენახულია — თავის შეკავება აღარ შეიძლება"
                   : undefined
               }
-              className="w-full rounded-xl border border-border text-muted px-6 py-3 font-medium hover:bg-accent disabled:opacity-60 sm:justify-self-end"
+              className="flex-1 min-w-0 portrait:flex-1 landscape:flex-none w-auto rounded-xl border border-border text-muted px-3 landscape:px-6 py-3 text-sm landscape:text-base font-medium hover:bg-accent disabled:opacity-60 landscape:justify-self-end landscape:w-full"
             >
               თავი შეიკავა
             </button>
