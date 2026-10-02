@@ -184,6 +184,7 @@ export function SurveyPanel({
   const [saving, setSaving] = useState(false);
   const [editPatientOpen, setEditPatientOpen] = useState(false);
   const [patientBusy, setPatientBusy] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const emptyAnswers = useMemo(() => {
     const map: Record<string, AnswerState> = {};
@@ -263,6 +264,13 @@ export function SurveyPanel({
     setAnswers((prev) => ({ ...prev, [qid]: { ...prev[qid], ...patch } }));
   }
 
+  async function flashSavedThen(onDone: () => void | Promise<void>) {
+    setSavedFlash(true);
+    await new Promise((r) => setTimeout(r, 1400));
+    setSavedFlash(false);
+    await onDone();
+  }
+
   async function save() {
     if (!allValid) {
       setError(`შეავსეთ ყველა კითხვა: გაუცდელია ${invalidCount}`);
@@ -291,7 +299,7 @@ export function SurveyPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "შენახვა ვერ მოხერხდა");
-      await onSaved();
+      await flashSavedThen(onSaved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "შეცდომა");
     } finally {
@@ -354,7 +362,7 @@ export function SurveyPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "შენახვა ვერ მოხერხდა");
-      await onSaved();
+      await flashSavedThen(onSaved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "შეცდომა");
     } finally {
@@ -554,7 +562,8 @@ export function SurveyPanel({
         {error && <p className="text-fix text-sm">{error}</p>}
 
         {!readOnly && (
-          <div className="flex flex-row gap-2 w-full items-center portrait:flex-wrap landscape:grid landscape:grid-cols-3 landscape:gap-3">
+          <div className="space-y-2">
+            <div className="flex flex-row gap-2 w-full items-center portrait:flex-wrap landscape:grid landscape:grid-cols-3 landscape:gap-3">
             <button
               type="button"
               disabled={saving || !allValid}
@@ -645,6 +654,16 @@ export function SurveyPanel({
             >
               თავი შეიკავა
             </button>
+            </div>
+            {savedFlash && (
+              <p
+                className="text-center text-sm font-semibold text-good pt-1"
+                role="status"
+                aria-live="polite"
+              >
+                შენახულია
+              </p>
+            )}
           </div>
         )}
 

@@ -249,18 +249,7 @@ export function PatientSidebar({
             </label>
           </>
         )}
-        {message && (
-          <p
-            className={`text-sm rounded-xl px-3 py-2 ${
-              message === "შენახულია"
-                ? "bg-good/15 text-good font-medium border border-good/30"
-                : "text-xs text-muted"
-            }`}
-            role="status"
-          >
-            {message}
-          </p>
-        )}
+        {message && <p className="text-xs text-muted">{message}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto">
