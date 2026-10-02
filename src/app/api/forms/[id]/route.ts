@@ -32,6 +32,98 @@ const formInclude = {
 
 type DbClient = typeof prisma;
 
+type StoredQuestion = {
+  text: string;
+  type: QuestionType;
+  required: boolean;
+  order: number;
+  ratingMin: number;
+  ratingMax: number;
+  options: {
+    label: string;
+    value: string;
+    order: number;
+    isNegative: boolean;
+    requireReason: boolean;
+  }[];
+};
+
+function questionContentKey(
+  q: {
+    text: string;
+    type: QuestionType;
+    required: boolean;
+    order: number;
+    ratingMin: number;
+    ratingMax: number;
+    options: {
+      label: string;
+      value: string;
+      order: number;
+      isNegative: boolean;
+      requireReason: boolean;
+    }[];
+  },
+): string {
+  const options = [...q.options]
+    .sort((a, b) => a.order - b.order)
+    .map((o) => ({
+      label: o.label,
+      value: o.value,
+      order: o.order,
+      isNegative: o.isNegative,
+      requireReason: o.requireReason,
+    }));
+  return JSON.stringify({
+    text: q.text.trim(),
+    type: q.type,
+    required: q.required,
+    order: q.order,
+    ratingMin: q.ratingMin,
+    ratingMax: q.ratingMax,
+    options,
+  });
+}
+
+function incomingQuestionToStored(q: QuestionInput, index: number): StoredQuestion {
+  const order = q.order ?? index + 1;
+  return {
+    text: String(q.text).trim(),
+    type: q.type,
+    required: q.required ?? true,
+    order,
+    ratingMin: q.ratingMin ?? 1,
+    ratingMax: q.ratingMax ?? 5,
+    options: (q.options || []).map((o, oi) => ({
+      label: String(o.label),
+      value: String(o.value || o.label),
+      order: o.order ?? oi + 1,
+      isNegative: Boolean(o.isNegative),
+      requireReason: Boolean(o.requireReason),
+    })),
+  };
+}
+
+function questionsContentEqual(
+  stored: StoredQuestion[],
+  incoming: QuestionInput[],
+): boolean {
+  if (stored.length !== incoming.length) return false;
+  const storedByOrder = [...stored].sort((a, b) => a.order - b.order);
+  const incomingNormalized = incoming
+    .map((q, i) => incomingQuestionToStored(q, i))
+    .sort((a, b) => a.order - b.order);
+  for (let i = 0; i < storedByOrder.length; i++) {
+    if (
+      questionContentKey(storedByOrder[i]) !==
+      questionContentKey(incomingNormalized[i])
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function createQuestions(
   db: DbClient,
   questionnaireId: string,
@@ -103,6 +195,54 @@ export async function PUT(
     : null;
 
   if (questions && existing._count.surveys > 0) {
+    const existingWithQuestions = await prisma.questionnaire.findUnique({
+      where: { id },
+      include: formInclude,
+    });
+    const storedQuestions: StoredQuestion[] =
+      existingWithQuestions?.questions.map((q) => ({
+        text: q.text,
+        type: q.type,
+        required: q.required,
+        order: q.order,
+        ratingMin: q.ratingMin ?? 1,
+        ratingMax: q.ratingMax ?? 5,
+        options: q.options.map((o) => ({
+          label: o.label,
+          value: o.value,
+          order: o.order,
+          isNegative: o.isNegative,
+          requireReason: o.requireReason,
+        })),
+      })) ?? [];
+
+    if (questionsContentEqual(storedQuestions, questions)) {
+      await prisma.questionnaire.update({
+        where: { id },
+        data: {
+          title: String(body.title ?? existing.title).trim() || existing.title,
+          description:
+            body.description !== undefined
+              ? body.description || null
+              : existing.description,
+          active: body.active !== false,
+        },
+      });
+
+      if (body.active !== false) {
+        await prisma.questionnaire.updateMany({
+          where: { id: { not: id } },
+          data: { active: false },
+        });
+      }
+
+      const form = await prisma.questionnaire.findUnique({
+        where: { id },
+        include: formInclude,
+      });
+      return NextResponse.json(form);
+    }
+
     const rootId = existing.parentId || existing.id;
     const siblings = await prisma.questionnaire.findMany({
       where: { OR: [{ id: rootId }, { parentId: rootId }] },
@@ -157,7 +297,7 @@ export async function PUT(
     });
   }
 
-  if (questions) {
+  if (questions && existing._count.surveys === 0) {
     await prisma.question.deleteMany({ where: { questionnaireId: id } });
     await createQuestions(prisma, id, questions);
   }
