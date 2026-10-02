@@ -39,7 +39,8 @@ function buildResult(
   if (!/^\d{11}$/.test(personalId)) return null;
   if (!HISTORY_NUMBER_RE.test(historyNumber)) return null;
 
-  const fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
+  // გვარი + სახელი — როგორც HIS/Excel-იდან გადმოსულ პაციენტებში
+  const fullName = `${lastName} ${firstName}`.replace(/\s+/g, " ").trim();
 
   return {
     fullName,
