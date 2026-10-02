@@ -6,6 +6,22 @@ import { assessmentLabel } from "@/lib/labels";
 import { parseLocalDay, toClinicDayString, todayClinicDay } from "@/lib/dates";
 import { isNotApplicableAnswer } from "@/lib/notApplicable";
 
+type AnswerLike = {
+  questionId: string;
+  selectedValues: string[];
+  textValue: string | null;
+  ratingValue: number | null;
+  reason: string | null;
+  isNegative: boolean;
+};
+
+function answerText(a: AnswerLike): string {
+  if (a.ratingValue != null) return String(a.ratingValue);
+  if (a.selectedValues?.length) return a.selectedValues.join(", ");
+  if (a.textValue) return a.textValue;
+  return "";
+}
+
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -15,6 +31,18 @@ export async function GET(req: Request) {
   const toRaw = searchParams.get("to");
   const fromDate = parseLocalDay(fromRaw || todayClinicDay());
   const toDate = parseLocalDay(toRaw || todayClinicDay());
+
+  const activeForm = await prisma.questionnaire.findFirst({
+    where: { active: true },
+    include: {
+      questions: {
+        orderBy: { order: "asc" },
+        select: { id: true, text: true, order: true },
+      },
+    },
+  });
+
+  let columnQuestions = activeForm?.questions ?? [];
 
   const surveys = await prisma.survey.findMany({
     where: {
@@ -36,7 +64,9 @@ export async function GET(req: Request) {
       },
       author: { select: { name: true } },
       answers: {
-        include: { question: { select: { text: true, type: true } } },
+        include: {
+          question: { select: { id: true, text: true, type: true, order: true } },
+        },
         orderBy: { question: { order: "asc" } },
       },
     },
@@ -44,40 +74,77 @@ export async function GET(req: Request) {
     take: 5000,
   });
 
-  const rows: Record<string, unknown>[] = [];
-
-  for (const s of surveys) {
-    const base: Record<string, unknown> = {
-      თარიღი: toClinicDayString(s.surveyDate),
-      პაციენტი: s.patient.fullName,
-      პირადი_ნომერი: s.patient.personalId || "",
-      ისტორია: s.patient.historyNumber || "",
-      ასაკი: s.patient.age ?? "",
-      განყოფილება: s.patient.departmentName || "",
-      ექიმი: s.patient.doctorName || "",
-      შეფასება: assessmentLabel(s.assessment),
-      გამომკითხველი: s.author.name,
-      კომენტარი: s.comment || "",
-    };
-
-    s.answers.forEach((a, idx) => {
-      if (isNotApplicableAnswer(a)) return;
-
-      let answerText = "";
-      if (a.ratingValue != null) answerText = String(a.ratingValue);
-      else if (a.selectedValues && a.selectedValues.length > 0)
-        answerText = a.selectedValues.join(", ");
-      else if (a.textValue) answerText = a.textValue;
-
-      const qText = a.question?.text || `კითხვა ${idx + 1}`;
-      base[`${idx + 1}. ${qText}`] = answerText;
-      if (a.reason) base[`${idx + 1}. მიზეზი`] = a.reason;
-    });
-
-    rows.push(base);
+  if (columnQuestions.length === 0 && surveys.length > 0) {
+    const seen = new Map<string, { id: string; text: string; order: number }>();
+    for (const s of surveys) {
+      for (const a of s.answers) {
+        if (!a.question) continue;
+        seen.set(a.question.id, {
+          id: a.question.id,
+          text: a.question.text,
+          order: a.question.order,
+        });
+      }
+    }
+    columnQuestions = [...seen.values()].sort((a, b) => a.order - b.order);
   }
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const headerRow: string[] = [
+    "თარიღი",
+    "პაციენტი",
+    "პირადი_ნომერი",
+    "ისტორია",
+    "ასაკი",
+    "განყოფილება",
+    "ექიმი",
+    "შეფასება",
+    "გამომკითხველი",
+    "კომენტარი",
+  ];
+
+  for (let i = 0; i < columnQuestions.length; i++) {
+    const n = i + 1;
+    const q = columnQuestions[i];
+    headerRow.push(`${n}. ${q.text}`);
+    headerRow.push(`მიზეზი(${n})`);
+  }
+
+  const dataRows: unknown[][] = [];
+
+  for (const s of surveys) {
+    const byQuestionId = new Map(s.answers.map((a) => [a.questionId, a]));
+
+    const row: unknown[] = [
+      toClinicDayString(s.surveyDate),
+      s.patient.fullName,
+      s.patient.personalId || "",
+      s.patient.historyNumber || "",
+      s.patient.age ?? "",
+      s.patient.departmentName || "",
+      s.patient.doctorName || "",
+      assessmentLabel(s.assessment),
+      s.author.name,
+      s.comment || "",
+    ];
+
+    for (const q of columnQuestions) {
+      const a = byQuestionId.get(q.id);
+      if (!a || isNotApplicableAnswer(a)) {
+        row.push("", "");
+        continue;
+      }
+      row.push(answerText(a));
+      const reason =
+        a.isNegative && a.reason && String(a.reason).trim() !== ""
+          ? String(a.reason).trim()
+          : "";
+      row.push(reason);
+    }
+
+    dataRows.push(row);
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "შედეგები");
 
