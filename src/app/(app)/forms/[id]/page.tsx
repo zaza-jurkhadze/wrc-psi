@@ -190,21 +190,35 @@ export default function FormEditorPage() {
             </button>
           </div>
 
-          <select
-            value={q.type}
-            onChange={(e) => {
-              const next = [...questions];
-              next[qi] = { ...q, type: e.target.value as QuestionType };
-              setQuestions(next);
-            }}
-            className="rounded-xl border border-border px-3 py-2 text-sm"
-          >
-            {TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={q.type}
+              onChange={(e) => {
+                const next = [...questions];
+                next[qi] = { ...q, type: e.target.value as QuestionType };
+                setQuestions(next);
+              }}
+              className="rounded-xl border border-border px-3 py-2 text-sm"
+            >
+              {TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={q.required}
+                onChange={(e) => {
+                  const next = [...questions];
+                  next[qi] = { ...q, required: e.target.checked };
+                  setQuestions(next);
+                }}
+              />
+              კითხვა სავალდებულია
+            </label>
+          </div>
 
           {q.type === "RATING" && (
             <div className="flex gap-3 text-sm">
