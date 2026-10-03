@@ -207,93 +207,95 @@ export default function ResultsPage() {
 
   return (
     <div>
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="p-3 sm:p-6 max-w-6xl mx-auto space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">შედეგები</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">შედეგები</h1>
           <p className="text-sm text-muted mt-1">
             აქ ჩანს ვინ რა შეფასება მიიღო (დეტალები იმეილში არ იგზავნება)
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm flex items-center gap-2">
-            თარიღი
-            <button
-              type="button"
-              onClick={() => setDate(prevDayISO(date))}
-              className="shrink-0 w-9 h-9 rounded-xl border border-border bg-card text-foreground hover:bg-accent transition flex items-center justify-center"
-              title="წინა დღე"
-              aria-label="წინა დღე"
-            >
-              ‹
-            </button>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="rounded-xl border border-border px-3 py-2"
-            />
-            <button
-              type="button"
-              onClick={() => setDate(nextDayISO(date))}
-              disabled={isTodayISO(date)}
-              className="shrink-0 w-9 h-9 rounded-xl border border-border bg-card text-foreground hover:bg-accent transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-              title="შემდეგი დღე"
-              aria-label="შემდეგი დღე"
-            >
-              ›
-            </button>
+        <div className="flex flex-col gap-3 w-full md:w-auto md:flex-row md:flex-wrap md:items-end">
+          <label className="text-sm flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <span className="text-muted shrink-0">თარიღი</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDate(prevDayISO(date))}
+                className="shrink-0 w-9 h-9 rounded-xl border border-border bg-card text-foreground hover:bg-accent transition flex items-center justify-center"
+                title="წინა დღე"
+                aria-label="წინა დღე"
+              >
+                ‹
+              </button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="flex-1 min-w-0 rounded-xl border border-border px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => setDate(nextDayISO(date))}
+                disabled={isTodayISO(date)}
+                className="shrink-0 w-9 h-9 rounded-xl border border-border bg-card text-foreground hover:bg-accent transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                title="შემდეგი დღე"
+                aria-label="შემდეგი დღე"
+              >
+                ›
+              </button>
+            </div>
           </label>
-          <label className="text-sm">
-            ძებნა{" "}
+          <label className="text-sm flex flex-col gap-1.5 w-full md:w-auto">
+            <span className="text-muted">ძებნა</span>
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="სახელი, პ/ნ, ისტორია..."
-              className="ml-2 w-[220px] rounded-xl border border-border px-3 py-2"
+              className="w-full md:w-[220px] rounded-xl border border-border px-3 py-2"
             />
           </label>
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center gap-3">
-        <div className="text-sm font-medium leading-none self-center">
-          ექსელის ექსპორტი (პერიოდით)
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 flex flex-col gap-3">
+        <div className="text-sm font-medium">ექსელის ექსპორტი (პერიოდით)</div>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <label className="text-sm flex flex-col gap-1 flex-1 min-w-[140px]">
+            <span className="text-muted text-xs">დან</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full rounded-xl border border-border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm flex flex-col gap-1 flex-1 min-w-[140px]">
+            <span className="text-muted text-xs">მდე</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full rounded-xl border border-border px-3 py-2"
+            />
+          </label>
         </div>
-        <label className="text-sm flex items-center gap-2">
-          <span>დან</span>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="rounded-xl border border-border px-3 py-2"
-          />
-        </label>
-        <label className="text-sm flex items-center gap-2">
-          <span>მდე</span>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="rounded-xl border border-border px-3 py-2"
-          />
-        </label>
-        <div className="flex gap-1.5 w-full sm:w-auto">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
           {(
             [
               ["week", "1 კვირა"],
               ["month1", "1 თვე"],
               ["month2", "2 თვე"],
               ["month3", "3 თვე"],
-              ["thisMonth", "მიმდინარე თვე"],
+              ["thisMonth", "მიმდ. თვე"],
             ] as const
           ).map(([k, label]) => (
             <button
               key={k}
               type="button"
               onClick={() => setPreset(k)}
-              className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-accent text-muted cursor-pointer"
+              className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-accent text-muted cursor-pointer whitespace-nowrap shrink-0"
             >
               {label}
             </button>
@@ -302,13 +304,13 @@ export default function ResultsPage() {
         <button
           type="button"
           onClick={exportExcel}
-          className="rounded-xl bg-primary text-white px-4 py-2 hover:bg-primary-dark"
+          className="w-full sm:w-auto rounded-xl bg-primary text-white px-4 py-2.5 hover:bg-primary-dark"
         >
           გადმოტანა Excel-ში
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <Stat label="გამოსაკითხი იყო" value={rosterTotal} />
         <Stat label="გამოიკითხა" value={interviewed} />
         <Stat label="კარგია" value={good} tone="good" />
@@ -350,7 +352,61 @@ export default function ResultsPage() {
         />
       )}
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="md:hidden space-y-3">
+        {filteredRows.length === 0 && (
+          <p className="text-center text-muted py-8 bg-card border border-border rounded-2xl text-sm">
+            ჩანაწერები არ არის
+          </p>
+        )}
+        {filteredRows.map((r) => {
+          const isOpen = !!expanded[r.id];
+          return (
+            <article
+              key={r.id}
+              className="bg-card border border-border rounded-2xl overflow-hidden"
+            >
+              <div className="p-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(r.id)}
+                  className="shrink-0 w-9 h-9 rounded-lg border border-border hover:bg-accent text-muted flex items-center justify-center"
+                  aria-expanded={isOpen}
+                >
+                  {isOpen ? "−" : "+"}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-[15px] leading-snug">
+                    {r.patient.fullName}
+                  </div>
+                  <div className="text-xs text-muted mt-0.5">
+                    {r.patient.historyNumber || "—"}
+                    {r.patient.personalId
+                      ? ` · პ/ნ ${r.patient.personalId}`
+                      : ""}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <AssessmentBadge level={r.assessment} />
+                    <span className="text-xs text-muted">
+                      {r.patient.departmentName || "—"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-1.5">
+                    {r.author.name}
+                    {r.surveyDate ? ` · ${r.surveyDate.slice(0, 10)}` : ""}
+                  </p>
+                </div>
+              </div>
+              {isOpen && (
+                <div className="border-t border-border bg-accent/20 px-3 py-3 space-y-3">
+                  <SurveyAnswersBlock row={r} answerText={answerText} />
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block bg-card border border-border rounded-2xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-accent/50 text-left">
             <tr>
@@ -399,46 +455,8 @@ export default function ResultsPage() {
                   {isOpen && (
                     <tr className="border-t border-border bg-accent/20">
                       <td></td>
-                      <td colSpan={5} className="p-4 space-y-4">
-                        {r.comment && (
-                          <div className="bg-white rounded-xl p-3 border border-border">
-                            <p className="text-xs text-muted mb-1">დამატებითი კომენტარი</p>
-                            <p className="text-sm">{r.comment}</p>
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          {(r.answers || []).map((a, idx) => (
-                            <div
-                              key={a.questionId || idx}
-                              className="bg-white rounded-xl p-3 border border-border space-y-1"
-                            >
-                              <p className="text-sm font-medium">
-                                {idx + 1}. {a.question?.text || "კითხვა"}
-                              </p>
-                              {isNotApplicableAnswer(a) ? (
-                                <p className="text-sm text-muted">
-                                  (მიზეზი 0) - პასუხი არ აქვს, რადგან ეს
-                                  მომსახურება ჯერ არ მიუღია
-                                </p>
-                              ) : (
-                                <>
-                                  <p className="text-sm text-muted">
-                                    პასუხი: {answerText(a)}
-                                  </p>
-                                  {a.reason && (
-                                    <p className="text-sm">
-                                      <span className="text-muted">მიზეზი: </span>
-                                      {a.reason}
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          ))}
-                          {(!r.answers || r.answers.length === 0) && (
-                            <p className="text-xs text-muted">პასუხები ვერ მოიძებნა</p>
-                          )}
-                        </div>
+                      <td colSpan={5} className="p-4">
+                        <SurveyAnswersBlock row={r} answerText={answerText} />
                       </td>
                     </tr>
                   )}
@@ -448,6 +466,76 @@ export default function ResultsPage() {
           </tbody>
         </table>
       </div>
+      </div>
+    </div>
+  );
+}
+
+function AssessmentBadge({ level }: { level: AssessmentLevel }) {
+  const tone =
+    level === "GOOD"
+      ? "bg-good/15 text-good border-good/30"
+      : level === "ATTENTION" || level === "ABSTAINED"
+        ? "bg-attention/15 text-attention border-attention/30"
+        : level === "FIX_NEEDED"
+          ? "bg-fix/15 text-fix border-fix/30"
+          : "bg-accent text-foreground border-border";
+  return (
+    <span
+      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-md border ${tone}`}
+    >
+      {assessmentLabel(level)}
+    </span>
+  );
+}
+
+function SurveyAnswersBlock({
+  row,
+  answerText,
+}: {
+  row: Row;
+  answerText: (a: AnswerRow) => string;
+}) {
+  return (
+    <div className="space-y-3">
+      {row.comment && (
+        <div className="bg-white rounded-xl p-3 border border-border">
+          <p className="text-xs text-muted mb-1">დამატებითი კომენტარი</p>
+          <p className="text-sm">{row.comment}</p>
+        </div>
+      )}
+      <div className="space-y-2">
+        {(row.answers || []).map((a, idx) => (
+          <div
+            key={a.questionId || idx}
+            className="bg-white rounded-xl p-3 border border-border space-y-1"
+          >
+            <p className="text-sm font-medium leading-snug break-words">
+              {idx + 1}. {a.question?.text || "კითხვა"}
+            </p>
+            {isNotApplicableAnswer(a) ? (
+              <p className="text-sm text-muted leading-snug">
+                (მიზეზი 0) - პასუხი არ აქვს, რადგან ეს მომსახურება ჯერ არ
+                მიუღია
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted break-words">
+                  პასუხი: {answerText(a)}
+                </p>
+                {a.reason && (
+                  <p className="text-sm break-words">
+                    <span className="text-muted">მიზეზი: </span>
+                    {a.reason}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        ))}
+        {(!row.answers || row.answers.length === 0) && (
+          <p className="text-xs text-muted">პასუხები ვერ მოიძებნა</p>
+        )}
       </div>
     </div>
   );
@@ -477,9 +565,11 @@ function Stat({
           ? "text-fix"
           : "text-foreground";
   return (
-    <div className="bg-card border border-border rounded-2xl p-4 min-h-[108px] flex flex-col overflow-hidden">
-      <p className="text-xs text-muted pr-1 break-words">{label}</p>
-      <p className={`text-2xl font-semibold mt-1 ${color}`}>{value}</p>
+    <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 min-h-[88px] sm:min-h-[108px] flex flex-col overflow-hidden">
+      <p className="text-[11px] sm:text-xs text-muted pr-1 break-words leading-snug">
+        {label}
+      </p>
+      <p className={`text-xl sm:text-2xl font-semibold mt-1 ${color}`}>{value}</p>
       {detailLabel && onDetail && (
         <button
           type="button"
@@ -507,7 +597,7 @@ function TopProblemsPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">{title}</h2>
