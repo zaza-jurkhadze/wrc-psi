@@ -33,36 +33,46 @@ export async function GET(req: Request) {
     patientWhereFilter.departmentId = session.user.departmentId;
   }
 
-  const roster = await prisma.dailyRoster.findMany({
-    where: {
-      date: day,
-      patient: Object.keys(patientWhereFilter).length > 0 ? patientWhereFilter : undefined,
-    },
-    include: {
-      patient: {
-        include: {
-          surveys: {
-            where: { surveyDate: day },
-            select: { id: true, assessment: true },
+  try {
+    const roster = await prisma.dailyRoster.findMany({
+      where: {
+        date: day,
+        patient:
+          Object.keys(patientWhereFilter).length > 0
+            ? patientWhereFilter
+            : undefined,
+      },
+      include: {
+        patient: {
+          include: {
+            surveys: {
+              where: { surveyDate: day },
+              select: { id: true, assessment: true, abstainReason: true },
+            },
           },
         },
       },
-    },
-    orderBy: [
-      { patient: { departmentName: "asc" } },
-      { patient: { fullName: "asc" } },
-    ],
-  });
+      orderBy: [
+        { patient: { departmentName: "asc" } },
+        { patient: { fullName: "asc" } },
+      ],
+    });
 
-  return NextResponse.json({
-    date: day.toISOString(),
-    patients: roster.map((r) => ({
-      ...r.patient,
-      surveyedToday: r.patient.surveys.length > 0,
-      todaySurveyId: r.patient.surveys[0]?.id ?? null,
-      todayAssessment: r.patient.surveys[0]?.assessment ?? null,
-    })),
-  });
+    return NextResponse.json({
+      date: day.toISOString(),
+      patients: roster.map((r) => ({
+        ...r.patient,
+        surveyedToday: r.patient.surveys.length > 0,
+        todaySurveyId: r.patient.surveys[0]?.id ?? null,
+        todayAssessment: r.patient.surveys[0]?.assessment ?? null,
+        todayAbstainReason: r.patient.surveys[0]?.abstainReason ?? null,
+      })),
+    });
+  } catch (e) {
+    console.error("[GET /api/patients]", e);
+    const message = e instanceof Error ? e.message : "პაციენტების ჩატვირთვა ვერ მოხერხდა";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {

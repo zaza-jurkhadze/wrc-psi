@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  abstainReasonLabel,
+  type AbstainReason,
+} from "@/lib/abstainReason";
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
 import { prevDayISO, nextDayISO } from "@/lib/dates";
 
@@ -16,6 +20,7 @@ export type RosterPatient = {
   surveyedToday: boolean;
   todaySurveyId: string | null;
   todayAssessment: AssessmentLevel | null;
+  todayAbstainReason?: AbstainReason | null;
 };
 
 export function PatientSidebar({
@@ -304,9 +309,11 @@ export function PatientSidebar({
                         >
                           {!p.surveyedToday
                             ? "გამოუკითხავი"
-                            : p.todayAssessment
-                              ? assessmentLabel(p.todayAssessment)
-                              : "შევსებული"}
+                            : p.todayAssessment === "ABSTAINED"
+                              ? abstainReasonLabel(p.todayAbstainReason)
+                              : p.todayAssessment
+                                ? assessmentLabel(p.todayAssessment)
+                                : "შევსებული"}
                         </span>
                       </div>
                     </button>

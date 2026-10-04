@@ -11,6 +11,13 @@ import {
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
 import { topProblemsByAssessment, type TopProblem } from "@/lib/problems";
 import { localDateISO, prevDayISO, nextDayISO, isTodayISO } from "@/lib/dates";
+import {
+  ABSTAIN_REASON_ORDER,
+  abstainReasonLabel,
+  abstainReasonWithNumber,
+  effectiveAbstainReason,
+  type AbstainReason,
+} from "@/lib/abstainReason";
 import { isNotApplicableAnswer } from "@/lib/notApplicable";
 
 type AnswerRow = {
@@ -27,6 +34,7 @@ type Row = {
   id: string;
   surveyDate: string;
   assessment: AssessmentLevel;
+  abstainReason?: AbstainReason | null;
   comment: string | null;
   patient: {
     fullName: string;
@@ -178,7 +186,17 @@ export default function ResultsPage() {
   const good = filteredRows.filter((r) => r.assessment === "GOOD").length;
   const attention = filteredRows.filter((r) => r.assessment === "ATTENTION").length;
   const fix = filteredRows.filter((r) => r.assessment === "FIX_NEEDED").length;
-  const abstained = filteredRows.filter((r) => r.assessment === "ABSTAINED").length;
+  const abstainedRows = filteredRows.filter(
+    (r) => r.assessment === "ABSTAINED",
+  );
+  const abstainByReason = Object.fromEntries(
+    ABSTAIN_REASON_ORDER.map((key) => [
+      key,
+      abstainedRows.filter(
+        (r) => effectiveAbstainReason(r.abstainReason) === key,
+      ).length,
+    ]),
+  ) as Record<AbstainReason, number>;
 
   const attentionProblems = useMemo(
     () => topProblemsByAssessment(filteredRows, "ATTENTION", 8, questionTexts),
@@ -334,7 +352,16 @@ export default function ResultsPage() {
             setDetailOpen((v) => (v === "FIX_NEEDED" ? null : "FIX_NEEDED"))
           }
         />
-        <Stat label="თავი შეიკავა" value={abstained} tone="attention" />
+        <Stat
+          label=""
+          value={0}
+          tone="attention"
+          breakdownOnly
+          subLines={ABSTAIN_REASON_ORDER.map((key) => ({
+            label: abstainReasonWithNumber(key),
+            value: abstainByReason[key] ?? 0,
+          }))}
+        />
       </div>
 
       {detailOpen === "ATTENTION" && (
@@ -385,7 +412,10 @@ export default function ResultsPage() {
                       : ""}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <AssessmentBadge level={r.assessment} />
+                    <AssessmentBadge
+                      level={r.assessment}
+                      abstainReason={r.abstainReason}
+                    />
                     <span className="text-xs text-muted">
                       {r.patient.departmentName || "—"}
                     </span>
@@ -446,7 +476,11 @@ export default function ResultsPage() {
                       <div className="text-xs text-muted">{r.patient.historyNumber || "—"}</div>
                     </td>
                     <td className="p-3">{r.patient.departmentName || "—"}</td>
-                    <td className="p-3">{assessmentLabel(r.assessment)}</td>
+                    <td className="p-3">
+                      {r.assessment === "ABSTAINED"
+                        ? abstainReasonLabel(r.abstainReason)
+                        : assessmentLabel(r.assessment)}
+                    </td>
                     <td className="p-3">{r.author.name}</td>
                     <td className="p-3 text-xs text-muted">
                       {r.surveyDate ? r.surveyDate.slice(0, 10) : ""}
@@ -471,7 +505,13 @@ export default function ResultsPage() {
   );
 }
 
-function AssessmentBadge({ level }: { level: AssessmentLevel }) {
+function AssessmentBadge({
+  level,
+  abstainReason,
+}: {
+  level: AssessmentLevel;
+  abstainReason?: AbstainReason | null;
+}) {
   const tone =
     level === "GOOD"
       ? "bg-good/15 text-good border-good/30"
@@ -480,11 +520,15 @@ function AssessmentBadge({ level }: { level: AssessmentLevel }) {
         : level === "FIX_NEEDED"
           ? "bg-fix/15 text-fix border-fix/30"
           : "bg-accent text-foreground border-border";
+  const text =
+    level === "ABSTAINED"
+      ? abstainReasonLabel(abstainReason)
+      : assessmentLabel(level);
   return (
     <span
       className={`inline-block text-xs font-medium px-2 py-0.5 rounded-md border ${tone}`}
     >
-      {assessmentLabel(level)}
+      {text}
     </span>
   );
 }
@@ -498,6 +542,11 @@ function SurveyAnswersBlock({
 }) {
   return (
     <div className="space-y-3">
+      {row.assessment === "ABSTAINED" && (
+        <p className="text-sm font-medium text-attention">
+          {abstainReasonLabel(row.abstainReason)}
+        </p>
+      )}
       {row.comment && (
         <div className="bg-white rounded-xl p-3 border border-border">
           <p className="text-xs text-muted mb-1">დამატებითი კომენტარი</p>
@@ -548,6 +597,8 @@ function Stat({
   detailLabel,
   detailOpen,
   onDetail,
+  subLines,
+  breakdownOnly,
 }: {
   label: string;
   value: number;
@@ -555,6 +606,8 @@ function Stat({
   detailLabel?: string;
   detailOpen?: boolean;
   onDetail?: () => void;
+  subLines?: { label: string; value: number }[];
+  breakdownOnly?: boolean;
 }) {
   const color =
     tone === "good"
@@ -566,10 +619,43 @@ function Stat({
           : "text-foreground";
   return (
     <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 min-h-[88px] sm:min-h-[108px] flex flex-col overflow-hidden">
-      <p className="text-[11px] sm:text-xs text-muted pr-1 break-words leading-snug">
-        {label}
-      </p>
-      <p className={`text-xl sm:text-2xl font-semibold mt-1 ${color}`}>{value}</p>
+      {breakdownOnly && subLines && subLines.length > 0 ? (
+        <ul
+          className={`space-y-1.5 text-[11px] sm:text-xs leading-snug flex-1 ${color}`}
+        >
+          {subLines.map((line) => (
+            <li key={line.label} className="flex justify-between gap-3">
+              <span className="min-w-0 leading-snug">{line.label}</span>
+              <span className="tabular-nums font-semibold shrink-0">
+                {line.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          {label ? (
+            <p className="text-[11px] sm:text-xs text-muted pr-1 break-words leading-snug">
+              {label}
+            </p>
+          ) : null}
+          <p className={`text-xl sm:text-2xl font-semibold mt-1 ${color}`}>
+            {value}
+          </p>
+          {subLines && subLines.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-[10px] sm:text-[11px] text-muted leading-snug">
+              {subLines.map((line) => (
+                <li key={line.label} className="flex justify-between gap-2">
+                  <span className="min-w-0 truncate">{line.label}</span>
+                  <span className="tabular-nums font-medium shrink-0">
+                    {line.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
       {detailLabel && onDetail && (
         <button
           type="button"

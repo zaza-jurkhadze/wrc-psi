@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  abstainReasonLabel,
+  abstainReasonWithNumber,
+  type AbstainReason,
+  ABSTAIN_REASON_ORDER,
+  effectiveAbstainReason,
+} from "@/lib/abstainReason";
 import { assessmentLabel, type AssessmentLevel } from "@/lib/labels";
 import { EditPatientModal } from "@/components/EditPatientModal";
 
@@ -148,6 +155,7 @@ export function SurveyPanel({
     id: string;
     comment: string | null;
     assessment: AssessmentLevel;
+    abstainReason?: AbstainReason | null;
     answers: {
       questionId: string;
       selectedValues: string[];
@@ -184,6 +192,9 @@ export function SurveyPanel({
   const [editPatientOpen, setEditPatientOpen] = useState(false);
   const [patientBusy, setPatientBusy] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [abstainReason, setAbstainReason] = useState<AbstainReason>(() =>
+    effectiveAbstainReason(existing?.abstainReason),
+  );
 
   const emptyAnswers = useMemo(() => {
     const map: Record<string, AnswerState> = {};
@@ -244,12 +255,13 @@ export function SurveyPanel({
       if (cancelled) return;
       setAnswers(initial);
       setComment(existing?.comment || "");
+      setAbstainReason(effectiveAbstainReason(existing?.abstainReason));
       setError("");
     });
     return () => {
       cancelled = true;
     };
-  }, [initial, existing?.comment, patient?.id]);
+  }, [initial, existing?.comment, existing?.abstainReason, patient?.id]);
 
   if (!patient) {
     return (
@@ -258,6 +270,10 @@ export function SurveyPanel({
       </div>
     );
   }
+
+  const existingAbstained = existing?.assessment === "ABSTAINED";
+  const abstainUiLocked =
+    readOnly || saving || (!!existing && !existingAbstained);
 
   function update(qid: string, patch: Partial<AnswerState>) {
     setAnswers((prev) => ({ ...prev, [qid]: { ...prev[qid], ...patch } }));
@@ -343,7 +359,13 @@ export function SurveyPanel({
   }
 
   async function abstain() {
-    if (!confirm("პაციენტმა თავი შეიკავა გამოკითხვისგან?")) return;
+    const reasonLabel = abstainReasonLabel(abstainReason);
+    const confirmText = existingAbstained
+      ? `განახლდეს უარყოფის მიზეზი?\n${reasonLabel}`
+      : `დავაფიქსიროთ გამოკითხვის უარყოფა?\nმიზეზი: ${reasonLabel}`;
+    if (!confirm(confirmText)) {
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -352,6 +374,7 @@ export function SurveyPanel({
         surveyDate,
         comment: comment || null,
         abstained: true,
+        abstainReason,
         answers: [],
       };
       const res = await fetch("/api/surveys", {
@@ -400,7 +423,9 @@ export function SurveyPanel({
               )}
               {existing && (
                 <span className="text-sm px-3 py-1 rounded-full bg-accent text-primary ml-auto">
-                  {assessmentLabel(existing.assessment)}
+                  {existing.assessment === "ABSTAINED"
+                    ? abstainReasonLabel(existing.abstainReason)
+                    : assessmentLabel(existing.assessment)}
                   {readOnly ? " · მხოლოდ ნახვა" : ""}
                 </span>
               )}
@@ -623,19 +648,70 @@ export function SurveyPanel({
               </span>
               <span className="hidden landscape:inline">გაუქმება</span>
             </button>
-            <button
-              type="button"
-              disabled={saving || !!existing}
-              onClick={abstain}
-              title={
-                existing
-                  ? "შეფასება უკვე შენახულია — თავის შეკავება აღარ შეიძლება"
-                  : undefined
-              }
-              className="flex-1 min-w-0 portrait:flex-1 landscape:flex-none w-auto rounded-xl border border-border text-muted px-3 landscape:px-6 py-3 text-sm landscape:text-base font-medium hover:bg-accent disabled:opacity-60 landscape:justify-self-end landscape:w-full"
-            >
-              თავი შეიკავა
-            </button>
+            <div className="portrait:basis-full portrait:w-full min-w-0 flex-1 landscape:justify-self-end landscape:min-w-0">
+              <div
+                className={`flex w-full min-w-0 h-11 rounded-xl border border-border bg-card overflow-hidden shadow-sm ${
+                  abstainUiLocked ? "opacity-60" : ""
+                }`}
+              >
+                <label className="sr-only" htmlFor="abstain-reason-select">
+                  გამოკითხვის უარყოფის მიზეზი
+                </label>
+                <select
+                  id="abstain-reason-select"
+                  value={abstainReason}
+                  onChange={(e) =>
+                    setAbstainReason(e.target.value as AbstainReason)
+                  }
+                  disabled={abstainUiLocked}
+                  className="flex-1 min-w-0 h-full border-0 bg-transparent px-2.5 sm:px-3 text-xs sm:text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
+                >
+                  {ABSTAIN_REASON_ORDER.map((r) => (
+                    <option key={r} value={r}>
+                      {abstainReasonWithNumber(r)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={abstainUiLocked}
+                  onClick={abstain}
+                  title={
+                    abstainUiLocked
+                      ? existing && !existingAbstained
+                        ? "შეფასება უკვe შენახულია"
+                        : undefined
+                      : existingAbstained
+                        ? `მიზეზის განახლება — ${abstainReasonLabel(abstainReason)}`
+                        : `შენახვა — ${abstainReasonLabel(abstainReason)}`
+                  }
+                  aria-label={
+                    abstainUiLocked
+                      ? "უარყოფის შეცვლა არ შეიძლება"
+                      : existingAbstained
+                        ? `მიზეზის განახლება: ${abstainReasonLabel(abstainReason)}`
+                        : `გამოკითხვის უარყოფის შენახვა: ${abstainReasonLabel(abstainReason)}`
+                  }
+                  className="shrink-0 inline-flex items-center justify-center h-full aspect-square min-w-11 border-l border-border bg-primary text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                    aria-hidden
+                  >
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
             </div>
             {savedFlash && (
               <p

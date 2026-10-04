@@ -2,7 +2,17 @@ import { NextResponse } from "next/server";
 import { auth, canEditAnySurvey, canCreateSurvey } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeAssessment, type AnswerInput } from "@/lib/assessment";
+import {
+  parseAbstainReason,
+  type AbstainReason,
+} from "@/lib/abstainReason";
 import { rosterDayFromParam, toClinicDayString, todayClinicDay } from "@/lib/dates";
+
+function abstainReasonFromBody(body: {
+  abstainReason?: unknown;
+}): AbstainReason {
+  return parseAbstainReason(body.abstainReason) ?? "SELF";
+}
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -157,6 +167,7 @@ export async function POST(req: Request) {
           surveyDate: day,
           comment,
           assessment: "ABSTAINED" as never,
+          abstainReason: abstainReasonFromBody(body),
           authorId: session.user.id,
         },
       });
@@ -290,6 +301,7 @@ export async function PUT(req: Request) {
         data: {
           comment: commentData,
           assessment: "ABSTAINED" as never,
+          abstainReason: abstainReasonFromBody(body),
           lastEditedById: session.user.id,
         },
       });
@@ -318,6 +330,7 @@ export async function PUT(req: Request) {
       data: {
         comment: commentData,
         assessment,
+        abstainReason: null,
         lastEditedById: session.user.id,
         answers: {
           create: normalized.map((a) => ({
