@@ -265,7 +265,7 @@ export function SurveyPanel({
   if (!patient) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted p-8">
-        აირჩიეთ პაციენტი მარცხენა სიიდან
+        აირჩიეთ პაციენტი
       </div>
     );
   }
