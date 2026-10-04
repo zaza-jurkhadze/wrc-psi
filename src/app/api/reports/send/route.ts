@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     where: { surveyDate: day },
     select: {
       assessment: true,
+      abstainReason: true,
       answers: {
         select: {
           isNegative: true,

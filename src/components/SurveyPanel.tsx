@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   abstainReasonLabel,
-  abstainReasonWithNumber,
   type AbstainReason,
   ABSTAIN_REASON_ORDER,
   effectiveAbstainReason,
@@ -668,7 +667,7 @@ export function SurveyPanel({
                 >
                   {ABSTAIN_REASON_ORDER.map((r) => (
                     <option key={r} value={r}>
-                      {abstainReasonWithNumber(r)}
+                      {abstainReasonLabel(r)}
                     </option>
                   ))}
                 </select>

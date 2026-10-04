@@ -29,10 +29,3 @@ export function abstainReasonLabel(
 ): string {
   return ABSTAIN_REASON_LABELS[effectiveAbstainReason(reason)];
 }
-
-export function abstainReasonWithNumber(
-  reason: AbstainReason,
-): string {
-  const idx = ABSTAIN_REASON_ORDER.indexOf(reason) + 1;
-  return `${idx}. ${ABSTAIN_REASON_LABELS[reason]}`;
-}

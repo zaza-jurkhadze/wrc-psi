@@ -7,6 +7,12 @@ import {
   formatTopProblemsBlock,
   type TopProblem,
 } from "./problems";
+import {
+  ABSTAIN_REASON_ORDER,
+  abstainReasonLabel,
+  effectiveAbstainReason,
+  type AbstainReason,
+} from "./abstainReason";
 
 export type DaySummary = {
   date: Date;
@@ -16,6 +22,7 @@ export type DaySummary = {
   attention: number;
   fixNeeded: number;
   abstained?: number;
+  abstainByReason?: Record<AbstainReason, number>;
   attentionProblems?: TopProblem[];
   fixProblems?: TopProblem[];
 };
@@ -45,7 +52,10 @@ export function buildAggregateEmail(summary: DaySummary, appUrl?: string) {
     `• კარგია — ${summary.good}`,
     `• საყურადღებოა — ${summary.attention}`,
     `• გამოსასწორებელია — ${summary.fixNeeded}`,
-    `• თავი შეიკავა — ${summary.abstained ?? 0}`,
+    ...ABSTAIN_REASON_ORDER.map(
+      (key) =>
+        `• ${abstainReasonLabel(key)} — ${summary.abstainByReason?.[key] ?? 0}`,
+    ),
     ``,
     ...formatTopProblemsBlock(
       `ტოპ პრობლემები (საყურადღებოა):`,
@@ -144,19 +154,36 @@ export async function sendMail(to: string[], subject: string, text: string) {
   return { skipped: true as const };
 }
 
-export function countByAssessment(rows: { assessment: AssessmentLevel }[]): {
+export function countByAssessment(rows: {
+  assessment: AssessmentLevel;
+  abstainReason?: AbstainReason | null;
+}[]): {
   total: number;
   good: number;
   attention: number;
   fixNeeded: number;
   abstained: number;
+  abstainByReason: Record<AbstainReason, number>;
 } {
+  const abstainedRows = rows.filter(
+    (r) => String(r.assessment) === "ABSTAINED",
+  );
+  const abstainByReason = Object.fromEntries(
+    ABSTAIN_REASON_ORDER.map((key) => [
+      key,
+      abstainedRows.filter(
+        (r) => effectiveAbstainReason(r.abstainReason) === key,
+      ).length,
+    ]),
+  ) as Record<AbstainReason, number>;
+
   return {
     total: rows.length,
     good: rows.filter((r) => r.assessment === AssessmentLevel.GOOD).length,
     attention: rows.filter((r) => r.assessment === AssessmentLevel.ATTENTION).length,
     fixNeeded: rows.filter((r) => r.assessment === AssessmentLevel.FIX_NEEDED).length,
-    abstained: rows.filter((r) => String(r.assessment) === "ABSTAINED").length,
+    abstained: abstainedRows.length,
+    abstainByReason,
   };
 }
 

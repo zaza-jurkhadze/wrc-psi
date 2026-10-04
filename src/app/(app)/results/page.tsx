@@ -14,7 +14,6 @@ import { localDateISO, prevDayISO, nextDayISO, isTodayISO } from "@/lib/dates";
 import {
   ABSTAIN_REASON_ORDER,
   abstainReasonLabel,
-  abstainReasonWithNumber,
   effectiveAbstainReason,
   type AbstainReason,
 } from "@/lib/abstainReason";
@@ -358,7 +357,7 @@ export default function ResultsPage() {
           tone="attention"
           breakdownOnly
           subLines={ABSTAIN_REASON_ORDER.map((key) => ({
-            label: abstainReasonWithNumber(key),
+            label: abstainReasonLabel(key),
             value: abstainByReason[key] ?? 0,
           }))}
         />
