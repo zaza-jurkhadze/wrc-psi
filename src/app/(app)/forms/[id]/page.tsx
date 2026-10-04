@@ -133,12 +133,12 @@ export default function FormEditorPage() {
   return (
     <div>
       <div className="p-6 max-w-3xl mx-auto space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">კითხვარის რედაქტორი</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h1 className="text-2xl font-semibold min-w-0">კითხვარის რედაქტორი</h1>
         <button
           type="button"
           onClick={remove}
-          className="text-sm text-fix hover:underline"
+          className="shrink-0 whitespace-nowrap text-sm text-fix hover:underline"
         >
           წაშლა
         </button>
@@ -170,7 +170,7 @@ export default function FormEditorPage() {
 
       {questions.map((q, qi) => (
         <div key={qi} className="bg-card border border-border rounded-2xl p-4 space-y-3">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               value={q.text}
               onChange={(e) => {
@@ -178,12 +178,12 @@ export default function FormEditorPage() {
                 next[qi] = { ...q, text: e.target.value };
                 setQuestions(next);
               }}
-              className="flex-1 rounded-xl border border-border px-3 py-2"
+              className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2"
               placeholder={`კითხვა ${qi + 1}`}
             />
             <button
               type="button"
-              className="text-sm text-fix px-2"
+              className="shrink-0 self-end whitespace-nowrap rounded-lg border border-border px-3 py-2 text-sm text-fix hover:bg-accent sm:self-auto sm:border-0 sm:px-2 sm:py-0 sm:hover:bg-transparent sm:hover:underline"
               onClick={() => setQuestions(questions.filter((_, i) => i !== qi))}
             >
               წაშლა
@@ -254,64 +254,75 @@ export default function FormEditorPage() {
           {(q.type === "SINGLE_CHOICE" || q.type === "MULTI_CHOICE") && (
             <div className="space-y-2">
               {q.options.map((o, oi) => (
-                <div key={oi} className="flex flex-wrap items-center gap-2">
-                  <input
-                    value={o.label}
-                    onChange={(e) => {
-                      const next = [...questions];
-                      const opts = [...q.options];
-                      opts[oi] = {
-                        ...o,
-                        label: e.target.value,
-                        value: e.target.value,
-                      };
-                      next[qi] = { ...q, options: opts };
-                      setQuestions(next);
-                    }}
-                    className="flex-1 min-w-[140px] rounded-lg border border-border px-2 py-1.5 text-sm"
-                  />
-                  <label className="text-xs flex items-center gap-1">
+                <div
+                  key={oi}
+                  className="space-y-2 rounded-xl border border-border/70 p-2.5 sm:border-0 sm:p-0"
+                >
+                  <div className="flex items-center gap-2">
                     <input
-                      type="checkbox"
-                      checked={o.isNegative}
+                      value={o.label}
                       onChange={(e) => {
                         const next = [...questions];
                         const opts = [...q.options];
-                        opts[oi] = { ...o, isNegative: e.target.checked };
+                        opts[oi] = {
+                          ...o,
+                          label: e.target.value,
+                          value: e.target.value,
+                        };
                         next[qi] = { ...q, options: opts };
                         setQuestions(next);
                       }}
+                      className="min-w-0 flex-1 rounded-lg border border-border px-2 py-1.5 text-sm"
                     />
-                    ნეგატიური
-                  </label>
-                  <label className="text-xs flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={o.requireReason}
-                      onChange={(e) => {
+                    <button
+                      type="button"
+                      className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-accent"
+                      aria-label="ვარიანტის წაშლა"
+                      onClick={() => {
                         const next = [...questions];
-                        const opts = [...q.options];
-                        opts[oi] = { ...o, requireReason: e.target.checked };
-                        next[qi] = { ...q, options: opts };
+                        next[qi] = {
+                          ...q,
+                          options: q.options.filter((_, i) => i !== oi),
+                        };
                         setQuestions(next);
                       }}
-                    />
-                    მიზეზი
-                  </label>
-                  <button
-                    type="button"
-                    className="text-xs text-muted"
-                    onClick={() => {
-                      const next = [...questions];
-                      next[qi] = {
-                        ...q,
-                        options: q.options.filter((_, i) => i !== oi),
-                      };
-                      setQuestions(next);
-                    }}
-                  >
-                    ×
-                  </button>
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-0.5 text-xs">
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={o.isNegative}
+                        onChange={(e) => {
+                          const next = [...questions];
+                          const opts = [...q.options];
+                          opts[oi] = { ...o, isNegative: e.target.checked };
+                          next[qi] = { ...q, options: opts };
+                          setQuestions(next);
+                        }}
+                      />
+                      ნეგატიური
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={o.requireReason}
+                        onChange={(e) => {
+                          const next = [...questions];
+                          const opts = [...q.options];
+                          opts[oi] = {
+                            ...o,
+                            requireReason: e.target.checked,
+                          };
+                          next[qi] = { ...q, options: opts };
+                          setQuestions(next);
+                        }}
+                      />
+                      მიზეზი
+                    </label>
+                  </div>
                 </div>
               ))}
               <button
