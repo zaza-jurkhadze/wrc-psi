@@ -11,18 +11,6 @@ type ScannerHandle = {
 /** html5-qrcode: 2 = scanning */
 const SCANNING_STATE = 2;
 
-function qrScanBoxSize(viewfinderWidth: number, viewfinderHeight: number) {
-  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-  const size = Math.floor(minEdge * 0.85);
-  return { width: size, height: size };
-}
-
-const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
-  facingMode: { ideal: "environment" },
-  width: { ideal: 1280, min: 640 },
-  height: { ideal: 720, min: 480 },
-};
-
 export function PatientQrScanner({
   open,
   onClose,
@@ -43,12 +31,7 @@ export function PatientQrScanner({
   const stopRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setError("");
-      setMounted(true);
-    } else {
-      setMounted(false);
-    }
+    if (open) setMounted(true);
   }, [open]);
 
   useEffect(() => {
@@ -91,20 +74,12 @@ export function PatientQrScanner({
         const { Html5Qrcode } = await import("html5-qrcode");
         if (cancelled) return;
 
-        const instance = new Html5Qrcode(regionId, {
-          verbose: false,
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        });
+        const instance = new Html5Qrcode(regionId, false);
         scanner = instance as unknown as ScannerHandle;
 
         await instance.start(
-          CAMERA_CONSTRAINTS,
-          {
-            fps: 18,
-            qrbox: qrScanBoxSize,
-            videoConstraints: CAMERA_CONSTRAINTS,
-            disableFlip: false,
-          },
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 260, height: 260 } },
           (decoded) => {
             if (scanned) return;
             scanned = true;
@@ -144,32 +119,23 @@ export function PatientQrScanner({
   if (!mounted) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black sm:items-center sm:justify-center sm:bg-black/60 sm:p-4">
-      <div className="flex min-h-0 flex-1 flex-col bg-card sm:max-h-[90vh] sm:w-full sm:max-w-lg sm:flex-none sm:rounded-2xl sm:border sm:border-border sm:shadow-lg">
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3 sm:border-0 sm:pb-0">
-          <h3 className="text-base font-semibold text-foreground">QR სკანერი</h3>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+      <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-lg p-4">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h3 className="text-base font-semibold">QR სკანერი</h3>
           <button
             type="button"
             onClick={requestClose}
-            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent"
+            className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-accent"
           >
             დახურვა
           </button>
         </div>
-        <div
-          id={regionId}
-          className="min-h-0 w-full flex-1 overflow-hidden bg-black sm:mx-4 sm:mt-3 sm:min-h-[280px] sm:flex-none sm:rounded-xl"
-        />
-        <div className="shrink-0 space-y-2 px-4 py-3 text-xs text-muted">
-          {error && <p className="text-sm text-fix">{error}</p>}
-          <p>
-            მიმართეთ კამერა სამაჯურის QR კოდს. Chrome-ით გახსენით — in-app
-            ბრაუზერში კამერა ხშირად ცუდად მუშაობს.
-          </p>
-          <p className="text-[11px] opacity-80">
-            ველები წარმატებული სкан-ის შემდეგ ავტომატურად შეივსება.
-          </p>
-        </div>
+        <div id={regionId} className="overflow-hidden rounded-xl min-h-[240px]" />
+        {error && <p className="mt-3 text-sm text-fix">{error}</p>}
+        <p className="mt-3 text-xs text-muted">
+          მიმართეთ კამერა სამაჯურის QR კოდს. ველები ავტომატურად შეივსება.
+        </p>
       </div>
     </div>
   );
